@@ -14,6 +14,36 @@ namespace Isle
 
     static class Native
     {
+        // ---------- crisp app windows ----------
+        // A see-through (layered) window or a DropShadowEffect over the content makes WPF draw the text into a
+        // soft greyscale bitmap. Instead: an ordinary opaque window, with Windows 11 drawing the frame, rounded
+        // corners and shadow itself, so text gets ClearType and pixel snapping.
+        [DllImport("dwmapi.dll")] static extern int DwmSetWindowAttribute(IntPtr h, int attr, ref int value, int size);
+
+        public static void NativeFrame(System.Windows.Window w)
+        {
+            w.WindowStyle = System.Windows.WindowStyle.SingleBorderWindow;   // keeps the caption style, which gets the shadow
+            w.AllowsTransparency = false;
+            System.Windows.Shell.WindowChrome.SetWindowChrome(w, new System.Windows.Shell.WindowChrome
+            {
+                CaptionHeight = 0,
+                ResizeBorderThickness = new System.Windows.Thickness(0),
+                GlassFrameThickness = new System.Windows.Thickness(0, 0, 0, 1),
+                CornerRadius = new System.Windows.CornerRadius(0),
+                UseAeroCaptionButtons = false,
+            });
+            w.SourceInitialized += (s, e) =>
+            {
+                var h = new System.Windows.Interop.WindowInteropHelper(w).Handle;
+                try
+                {
+                    int dark = 1; DwmSetWindowAttribute(h, 20, ref dark, 4);    // DWMWA_USE_IMMERSIVE_DARK_MODE
+                    int round = 2; DwmSetWindowAttribute(h, 33, ref round, 4);  // DWMWA_WINDOW_CORNER_PREFERENCE = round
+                }
+                catch { }
+            };
+        }
+
         // ---------- window styles ----------
         const int GWL_EXSTYLE = -20;
         const long WS_EX_TOOLWINDOW = 0x80, WS_EX_NOACTIVATE = 0x08000000, WS_EX_APPWINDOW = 0x40000;

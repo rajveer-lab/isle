@@ -21,22 +21,21 @@ namespace Isle
         {
             Owner = owner;
             Title = "Add an app";
-            Width = 420;
-            Height = 560;
+            Width = 396;
+            Height = 536;
             WindowStartupLocation = WindowStartupLocation.CenterOwner;
-            WindowStyle = WindowStyle.None;
-            AllowsTransparency = true;
-            Background = Brushes.Transparent;
+            Native.NativeFrame(this);
+            Background = new SolidColorBrush(Color.FromRgb(0x0B, 0x0B, 0x0E));
             ResizeMode = ResizeMode.NoResize;
             ShowInTaskbar = false;
+            UseLayoutRounding = true;
+            TextOptions.SetTextFormattingMode(this, TextFormattingMode.Display);
             _all = InstalledApps();
 
             var frame = new Border
             {
-                Margin = new Thickness(12), CornerRadius = new CornerRadius(18), Padding = new Thickness(16),
+                Padding = new Thickness(16),
                 Background = new SolidColorBrush(Color.FromRgb(0x0B, 0x0B, 0x0E)),
-                BorderBrush = new SolidColorBrush(Color.FromArgb(0x26, 255, 255, 255)), BorderThickness = new Thickness(1),
-                Effect = new System.Windows.Media.Effects.DropShadowEffect { BlurRadius = 22, ShadowDepth = 4, Opacity = 0.5 },
             };
             var root = new DockPanel();
             var head = new DockPanel { Margin = new Thickness(2, 0, 0, 12) };

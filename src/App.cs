@@ -8,8 +8,8 @@ using System.Windows;
 [assembly: System.Runtime.Versioning.TargetFramework(".NETFramework,Version=v4.8", FrameworkDisplayName = ".NET Framework 4.8")]
 [assembly: AssemblyTitle("Isle")]
 [assembly: AssemblyProduct("Isle - personal dynamic island")]
-[assembly: AssemblyVersion("1.4.5.0")]
-[assembly: AssemblyFileVersion("1.4.5.0")]
+[assembly: AssemblyVersion("1.4.6.0")]
+[assembly: AssemblyFileVersion("1.4.6.0")]
 [assembly: AssemblyCompany("Isle")]
 [assembly: AssemblyDescription("Isle - dynamic island for Windows")]
 

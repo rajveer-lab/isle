@@ -27,12 +27,11 @@ namespace Isle
             _island = island;
             _phone = phone;
             Title = "Isle";
-            WindowStyle = WindowStyle.None;
-            AllowsTransparency = true;
-            Background = Brushes.Transparent;
+            Native.NativeFrame(this);
+            Background = new SolidColorBrush(Color.FromRgb(0x0B, 0x0B, 0x0E));
             ResizeMode = ResizeMode.NoResize;
-            Width = 500;
-            Height = 760;
+            Width = 472;
+            Height = 732;
             WindowStartupLocation = WindowStartupLocation.CenterScreen;
             ShowInTaskbar = true;
 

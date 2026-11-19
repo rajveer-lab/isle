@@ -64,7 +64,7 @@ namespace IsleSetup
 
     static class Installer
     {
-        public const string Version = "1.4.5";
+        public const string Version = "1.4.6";
         public static string Dir => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Programs", "Isle");
         public static string Exe => Path.Combine(Dir, "Isle.exe");
         public static string Uninstaller => Path.Combine(Dir, "Uninstall Isle.exe");
@@ -232,16 +232,29 @@ namespace IsleSetup
 
         public bool Uninstalled { get; private set; }
 
+        [System.Runtime.InteropServices.DllImport("dwmapi.dll")] static extern int DwmSetWindowAttribute(IntPtr h, int attr, ref int value, int size);
+
         public SetupWindow(bool uninstall, string snapshot)
         {
             _uninstallMode = uninstall;
             _snapshot = snapshot;
             Title = uninstall ? "Uninstall Isle" : "Isle Setup";
-            WindowStyle = WindowStyle.None;
-            AllowsTransparency = true;
-            Background = Brushes.Transparent;
+            // ordinary opaque window, Windows 11 draws the rounded frame + shadow, so the text stays sharp
+            WindowStyle = WindowStyle.SingleBorderWindow;
+            AllowsTransparency = false;
+            System.Windows.Shell.WindowChrome.SetWindowChrome(this, new System.Windows.Shell.WindowChrome
+            {
+                CaptionHeight = 0, ResizeBorderThickness = new Thickness(0), GlassFrameThickness = new Thickness(0, 0, 0, 1),
+                CornerRadius = new CornerRadius(0), UseAeroCaptionButtons = false,
+            });
+            SourceInitialized += (s, e) =>
+            {
+                var h = new System.Windows.Interop.WindowInteropHelper(this).Handle;
+                try { int dark = 1; DwmSetWindowAttribute(h, 20, ref dark, 4); int round = 2; DwmSetWindowAttribute(h, 33, ref round, 4); } catch { }
+            };
+            Background = new SolidColorBrush(Color.FromRgb(0x0B, 0x0B, 0x0E));
             ResizeMode = ResizeMode.NoResize;
-            Width = 452;
+            Width = 420;
             SizeToContent = SizeToContent.Height;
             WindowStartupLocation = WindowStartupLocation.CenterScreen;
 

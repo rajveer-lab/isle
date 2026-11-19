@@ -1,141 +1,219 @@
-# Isle: your own dynamic island for Windows
+<div align="center">
 
-A lightweight, iPhone / MacBook-style dynamic island built only for this PC, now with your Pixel built in. It's a native WPF app on .NET Framework 4.8, which is already part of Windows.
+<img src="docs/logo.png" width="96" alt="Isle logo"/>
 
-| | Isle | Dynamic Edge (measured on this PC) |
-|---|---|---|
-| CPU | ~0.03-0.07 % | ~0.63 % |
-| Private memory | ~105-120 MB | ~228 MB |
+# Isle
 
-## Install (like an .apk)
+**A fast, native Dynamic Island for Windows, with your Android phone built in.**
 
-**`dist\IsleSetup.exe`** is a single 230 KB file with the whole app inside. Double-click it and choose **Install**.
+Music, calls, earbuds, volume, files and your phone's clipboard, all in one living pill at the top of your screen.
 
-- **Where it goes:** `%LOCALAPPDATA%\Programs\Isle`. No admin rights are needed.
-- **Shortcuts:** it adds a Start menu entry, and optionally a desktop shortcut and auto-start.
-- **Removing it:** use **Settings › Apps › Installed apps › Isle › Uninstall**. Your settings are kept unless you tick "delete my settings".
-- **Updating:** running a newer IsleSetup.exe updates Isle in place.
-- **Silent install / uninstall:** `IsleSetup.exe /quiet`, and `"%LOCALAPPDATA%\Programs\Isle\Uninstall Isle.exe" /uninstall /quiet`
+[![Download](https://img.shields.io/github/v/release/rajveer-lab/isle?label=download&style=for-the-badge&color=2ea44f)](https://github.com/rajveer-lab/isle/releases/latest)
+&nbsp;
+![Windows 11](https://img.shields.io/badge/Windows-10%20%7C%2011-0078D4?style=for-the-badge&logo=windows11&logoColor=white)
+&nbsp;
+![Android](https://img.shields.io/badge/Android-10%2B-3DDC84?style=for-the-badge&logo=android&logoColor=white)
 
-## Using it
+![C#](https://img.shields.io/badge/C%23-WPF%20%C2%B7%20.NET%20Framework%204.8-512BD4?style=flat-square&logo=dotnet&logoColor=white)
+![Java](https://img.shields.io/badge/Java-Android%20SDK-ED8B00?style=flat-square&logo=openjdk&logoColor=white)
+![CPU](https://img.shields.io/badge/idle%20CPU-~0.05%25-8A2BE2?style=flat-square)
+![Installer](https://img.shields.io/badge/installer-~230%20KB-555?style=flat-square)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue?style=flat-square)](LICENSE)
 
-- **It doesn't block Chrome.** While small, the pill is click-through, so clicks land on the tab underneath.
-- **Open it** by resting the cursor on the pill for half a second, or press **Ctrl+Alt+I**, or click the tray icon.
-- It closes as soon as the cursor leaves.
+<br/>
 
-## What it shows
+<img src="docs/screenshots/hero.png" width="620" alt="Isle expanded: clock, battery, earbuds, phone, file shelf and quick apps"/>
 
-- **Music:** album art and live bars in the pill. Opened, it has a seek bar, controls, volume, and a glow tinted with the art colors.
-- **Calls:**
-  - **Ongoing:** green phone icon and timer, plus Mute (mutes the mic for every app), Open and End.
-  - **Incoming:** caller, Decline and a pulsing Accept.
-  - Covers WhatsApp, Telegram, Discord, Teams, Zoom, browser calls, and **Pixel calls through Phone Link**.
-- **Privacy dot:** orange next to the pill when the microphone is in use, green for the camera.
-- **HUDs:**
-  - volume
-  - brightness
-  - mic key
-  - charging
-  - headphones connected
-  - Pixel connected / disconnected
-  - clipboard from the phone
-- **File shelf:** drag files onto the pill and hold. Drop them on **Keep on shelf** to park them, or on **Send to Pixel 8** to send them to the phone, like AirDrop.
-- **Quick apps**, and a clock / battery view when nothing plays.
-- **Fullscreen:** hides in fullscreen video, games and slides, except for incoming calls.
+</div>
 
-## The Isle app window
+---
 
-Opening **Isle from the Start menu** (or the tray's *Open Isle*) shows the app window:
-- island settings: style, idle look, start with Windows, fullscreen
-- your phone: status, battery, Ring, Send clipboard, Send files, Messages, Phone Link
-- the history of text copied on your phone, with **Copy** buttons
-- **Get the phone app**, Edit quick apps, Quit
+## Why Isle
 
-Closing the window keeps Isle running.
+Most "dynamic island" apps for Windows are heavy web or UWP shells that lag and sit on top of your browser tabs. Isle is a small native app built for one job and built to stay out of your way.
 
-## Isle for Android (Isle Link, Bluetooth, no third-party apps)
+- **Lightweight.** About 0.05 % CPU when idle, with no runtime to install, because .NET Framework 4.8 already ships with Windows.
+- **Never in the way.** The small pill lets clicks pass through it to the tab underneath. It only opens when you push the cursor against the top edge, and it fades see-through while you hover.
+- **Smooth.** Spring physics morph the width, height and squircle corners in one motion, with a soft blur in between.
+- **Your phone, with no extra apps.** Isle Link is its own Bluetooth protocol, paired once and connected automatically after that. You don't need Phone Link, KDE Connect or any cloud account.
 
-`dist\Isle-Phone.apk` (also installed next to Isle.exe) is Isle's own small phone app. It is built offline by `android\build-apk.ps1` with the Android SDK, with no Gradle and no libraries.
+## Features
 
-**Install it once:**
-- Send the APK to the Pixel with Quick Share, open it, and tap Install.
-- Open **Isle** on the phone, allow Bluetooth + notifications, and pick **FROSTBYTE**.
-- Tap *Let Isle run in the background*.
+<table>
+<tr>
+<td width="50%" valign="top">
 
-After that it reconnects to the laptop over Bluetooth by itself, even after restarts. Isle on the laptop listens with no other app.
+### 🎵 Now playing
+Album art and live bars sit in the pill. Opened, the island shows a seek bar, playback controls, volume, and a glow tinted by the album art. The bars and buttons take on the art's colour. It works with any app that reports what's playing to Windows: Spotify, Chrome, Edge, YouTube Music and more. The playing app's icon sits in the corner, and clicking it switches between players.
 
-- **Phone → laptop clipboard:** copy anything, then tap **Copy to laptop** in Isle's notification, use the Quick Settings tile, or Share → Isle. Press **Ctrl+V** on the laptop. Isle shows "From Pixel 8 …".
-- **Laptop → phone:** *Send clipboard* in the island or the app window.
-- **Battery:** the Pixel's battery and charging state show in the island and the app window.
-- **Ring:** rings the phone at full alarm volume, even on silent. Stop it from the phone's notification.
+</td>
+<td width="50%" valign="top">
 
-## Earbuds and volume
+### 📞 Calls
+- **Incoming calls:** shows the caller with Decline and a pulsing Accept.
+- **During a call:** a timer, plus Mute, which mutes the mic in every app, and End.
+- **Works with** WhatsApp, Telegram, Discord, Teams, Zoom, browser calls, and phone calls through Phone Link.
 
-- **Galaxy Buds Live (or any Bluetooth earbuds/headphones):** when they connect, the island drops an AirPods-style card with an animated battery ring. Windows reads the buds' battery over Bluetooth.
-- **Volume keys:** Isle takes them over (`own_volume_popup = true`), so only Isle's island pop-up shows, not Windows' own.
-- **Brightness:** Isle's pop-up shows too. Windows' own brightness pop-up can't be switched off.
+<img src="docs/screenshots/incoming-call.png" width="100%" alt="Incoming call"/>
 
-## Your Pixel
+</td>
+</tr>
+<tr>
+<td valign="top">
 
-Isle works with what's already on this PC: **KDE Connect** (paired with Pixel 8), **Bluetooth**, **Phone Link** and **Quick Share**. The phone row in the open island has:
+### 🎧 Earbuds
+An AirPods-style card drops in when Bluetooth earbuds connect. It shows a drawing of your buds and an animated battery ring. The buds' battery stays visible in the island, and you get a warning when it's low.
 
-| Button | What it does |
+<img src="docs/screenshots/earbuds.png" width="100%" alt="Galaxy Buds connected"/>
+
+</td>
+<td valign="top">
+
+### 🔊 Volume & brightness
+Isle replaces Windows' volume pop-up with its own slim pop-up in the island. Brightness, the mic key, charging and device changes show there too. A privacy dot lights up while the mic or camera is in use.
+
+<img src="docs/screenshots/volume.png" width="70%" alt="Volume pop-up"/>
+
+</td>
+</tr>
+<tr>
+<td valign="top">
+
+### 📱 Isle Link: your Android phone
+- **Clipboard:** copy on the phone and press Ctrl+V on the laptop, or send the laptop's clipboard to the phone.
+- **Files:** send them to the phone from the island, from the app window or with Explorer's *Send to*.
+- **Find your phone:** rings it at full volume, even on silent.
+- **Battery:** shows the phone's battery and charging state.
+- **Screen mirroring:** a live view of the phone screen. You can tap, swipe and type on it.
+
+<img src="docs/screenshots/phone-clipboard.png" width="100%" alt="Clipboard from the phone"/>
+
+</td>
+<td valign="top">
+
+### 🗂️ Shelf & quick apps
+Drag files onto the island, then drop them on **Keep on shelf** to park them for later, or on **Send to phone**. A row of quick apps can be edited from the app window.
+
+<img src="docs/screenshots/drop.png" width="100%" alt="Drop zone"/>
+
+</td>
+</tr>
+</table>
+
+<details>
+<summary><b>More screenshots</b></summary>
+<br/>
+
+| Ongoing call | Shelf + phone |
 |---|---|
-| status | Connected via Wi-Fi (KDE Connect) and/or Bluetooth. Click it to copy the last phone clipboard again. |
-| 🔔 | Find my phone: rings the Pixel, even on silent |
-| 📋 | Sends this PC's clipboard to the phone |
-| ➤ | Sends files to the phone |
-| 💬 | Messages (KDE Connect SMS, otherwise Phone Link) |
-| ↗ | Opens Phone Link (calls, photos) |
+| <img src="docs/screenshots/call.png" alt="Ongoing call"/> | <img src="docs/screenshots/shelf-and-phone.png" alt="Shelf and phone"/> |
 
-Isle starts KDE Connect in the background (`start_kdeconnect = true`). On the phone, open the **KDE Connect** app once on the same Wi-Fi so it connects.
+| The Isle app window | Compact pill |
+|---|---|
+| <img src="docs/screenshots/app-window.png" width="360" alt="Isle app window"/> | <img src="docs/screenshots/compact.png" alt="Compact pill"/> |
 
-### Paste on the laptop what you copied on the phone
+</details>
 
-KDE Connect puts the phone's clipboard on the laptop's clipboard, and Isle shows **"From Pixel 8: … Ctrl+V"**. Just press Ctrl+V.
+## Install
 
-Android 10+ only lets an app read the clipboard in the background with one extra permission:
+1. Download **`IsleSetup.exe`** from the [latest release](https://github.com/rajveer-lab/isle/releases/latest). It's a single file of about 230 KB.
+2. Run it and click **Install**.
+   - No admin rights are needed. Isle installs per user into `%LOCALAPPDATA%\Programs\Isle`.
+   - It adds a Start menu entry, optional auto-start and an Explorer *Send to › Phone (Isle)* entry.
+3. To connect your phone, download **`Isle-Phone.apk`** from the same release and install it on your Android phone.
+   - Open it, allow Bluetooth and notifications, and pick your laptop.
+   - From then on, the two reconnect by themselves.
 
-- **Without the permission:** after copying, tap **Send clipboard** in KDE Connect's notification on the phone.
-- **Automatic (one-time setup):** enable *USB debugging* on the Pixel (Settings › About phone, tap *Build number* 7×, then Settings › System › Developer options › USB debugging). Plug it in and run:
+To update, run a newer `IsleSetup.exe`. To uninstall, go to **Settings › Apps › Installed apps › Isle**. For a silent install, use `IsleSetup.exe /quiet`.
 
+## Usage
+
+| Action | How |
+|---|---|
+| Open the island | Push the cursor against the top edge of the screen above the pill, or press **Ctrl+Alt+I** |
+| Open settings | Start menu › **Isle**, or the tray icon |
+| Change volume | Scroll over the island, or use the volume keys |
+| Send files to the phone | Drag them onto the island, use *Send files*, or right-click › *Send to › Phone (Isle)* |
+| Paste the phone's clipboard | Copy on the phone, tap **Copy to laptop**, then press **Ctrl+V** |
+
+Every option is also in `%APPDATA%\Isle\settings.ini`, which is commented.
+
+## How it works
+
+```mermaid
+flowchart LR
+    subgraph Windows["Windows PC"]
+        GSMTC["Media sessions<br/>(GSMTC)"] --> Island
+        Audio["Core Audio<br/>volume · mic · peak"] --> Island
+        Calls["Mic/camera registry<br/>+ UI Automation"] --> Island
+        BT["Bluetooth LE / RFCOMM<br/>battery · devices"] --> Island
+        Island["Isle<br/>(WPF, layered window)"]
+        Hub["Isle app window"] --- Island
+    end
+    subgraph Phone["Android phone"]
+        Service["LinkService<br/>(foreground)"]
+        Mirror["MediaProjection<br/>+ Accessibility"]
+    end
+    Island <== "Isle Link · RFCOMM<br/>clipboard · files · ring · battery" ==> Service
+    Island <-. "TCP (local network)<br/>screen frames · touch" .-> Mirror
 ```
-"%LOCALAPPDATA%\Android\Sdk\platform-tools\adb.exe" -d shell pm grant org.kde.kdeconnect_tp android.permission.READ_LOGS
-"%LOCALAPPDATA%\Android\Sdk\platform-tools\adb.exe" -d shell appops set org.kde.kdeconnect_tp SYSTEM_ALERT_WINDOW allow
-"%LOCALAPPDATA%\Android\Sdk\platform-tools\adb.exe" -d shell am force-stop org.kde.kdeconnect_tp
-```
 
-These are KDE's own documented steps (userbase.kde.org/KDEConnect › Clipboard › Auto-sync on Android 10+).
+- **Island window.** A transparent, top-most tool window. It lets clicks through while compact, and it is driven by a spring simulation that animates the width, height and corner radius.
+- **Media.** Uses Windows' media session API (`GlobalSystemMediaTransportControls`). A colour taken from the album art drives the glow and the controls.
+- **Calls.** Detected from Windows' microphone and camera usage records. Caller names and the Accept, Decline and End buttons are read from call windows and notifications through UI Automation.
+- **Isle Link.** A small line-based protocol over Bluetooth RFCOMM, carrying `HELLO`, `CLIP`, `BATT`, `RING`, `FILE`/`DATA`/`FILEEND` and `MIRROR*`. Either side can dial the other, so they reconnect on their own.
+- **Phone app.** About 1,000 lines of plain Java built straight against the Android SDK, with no Gradle and no libraries. The APK is about 40 KB.
 
-## Settings
+## Build from source
 
-`%APPDATA%\Isle\settings.ini` (tray → *Edit settings & quick apps…*, then tray → *Reload settings*):
+**Requirements**
+- Windows 10 or 11
+- [Visual Studio Build Tools](https://visualstudio.microsoft.com/downloads/#build-tools-for-visual-studio-2022), for the Roslyn C# compiler
+- The Windows 10/11 SDK
+- *Optional, for the phone app:* the Android SDK (platform 35) and Android Studio's JDK
 
-- `style = notch | island`, `idle = clock | minimal`
-- `hover_delay_ms` (default 500), `collapse_delay_ms`, `hide_in_fullscreen`, `scroll_volume`, `track_peek`
-- `compact_title = true`: song title always in the pill
-- `phone = auto | off`, `phone_name`, `start_kdeconnect`
-- `[apps]`: `Name = AppID`, a full path, or a URL (`Get-StartApps` lists AppIDs)
-
-Logs go to `%APPDATA%\Isle\isle.log`. Incoming-call windows are logged there for tuning.
-
-## Build
-
-```
+```powershell
+git clone https://github.com/rajveer-lab/isle.git
+cd isle
 powershell -ExecutionPolicy Bypass -File build.ps1
 ```
 
-This builds `bin\Isle.exe` and `dist\IsleSetup.exe`. Debug helpers: `--pin-expanded`, and `--snapshot=<folder>`, which renders every state to PNGs.
-
-## Code map
-
-| File | What |
+| Output | What |
 |---|---|
-| `src/IslandWindow.cs` | Window, click-through + dwell hover, spring morph, every state and HUD |
-| `src/Island.xaml` | Layout and styles |
-| `src/MediaService.cs` | Windows media sessions, album art, accent color |
-| `src/CallService.cs` | Mic/camera usage, incoming calls, Accept/Decline/End via UI Automation |
-| `src/Phone.cs` | Pixel: KDE Connect, Bluetooth, clipboard from phone, Phone Link / Quick Share |
-| `src/AudioService.cs` | Volume, peak meter, mic mute, output-device changes |
-| `src/Extras.cs` | Brightness (WMI), file shelf |
-| `setup/Setup.cs`, `setup/Setup.xaml` | The single-file installer / uninstaller |
+| `bin/Isle.exe` | The app |
+| `dist/Isle-Phone.apk` | The Android app, built only if the Android SDK is found |
+| `dist/IsleSetup.exe` | A single-file installer that contains everything above |
+
+Debug flags: `--pin-expanded` keeps the island open, and `--snapshot=<folder>` renders every state to PNG and exits. The screenshots in this README were made that way.
+
+## Project structure
+
+```
+isle/
+├── src/                  Windows app (C#, WPF)
+│   ├── IslandWindow.cs   the island: states, morph, HUDs, input
+│   ├── Island.xaml       island layout and styles
+│   ├── HubWindow.cs      the Isle app window (Hub.xaml)
+│   ├── MediaService.cs   now playing, album art, accent colour
+│   ├── CallService.cs    call detection and controls
+│   ├── AudioService.cs   volume, mic mute, peak meter
+│   ├── IsleLink.cs       Bluetooth protocol (laptop side)
+│   ├── Phone.cs          phone status, clipboard, file sending
+│   ├── MirrorWindow.cs   phone screen viewer
+│   └── EarbudsArt.cs     vector earbuds drawings
+├── android/              Isle for Android (Java)
+├── setup/                single-file installer
+├── docs/                 logo and screenshots
+└── build.ps1             one-command build
+```
+
+## Roadmap
+
+- [ ] Microsoft Store package (MSIX)
+- [ ] Faster binary file transfer over Isle Link
+- [ ] Turn on the hotspot automatically for screen mirroring on networks that block device-to-device traffic
+- [ ] Multi-monitor placement options
+
+## License
+
+[MIT](LICENSE) © Rajveer Singh Chopra
