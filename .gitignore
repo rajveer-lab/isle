@@ -1,0 +1,6 @@
+# build outputs (recreated by build.ps1)
+bin/
+dist/
+android/build/
+*.idsig
+*.log

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp" android:height="108dp"
+    android:viewportWidth="108" android:viewportHeight="108">
+    <!-- the island pill -->
+    <path android:fillColor="#FF08080A" android:pathData="M38,44h32a10,10 0 0 1 0,20h-32a10,10 0 0 1 0,-20z" />
+    <!-- album dot -->
+    <path android:fillColor="#FF7CF2C2" android:pathData="M33.5,54a4.5,4.5 0 1 0 9,0a4.5,4.5 0 1 0 -9,0z" />
+    <!-- bars -->
+    <path android:fillColor="#FF7CF2C2" android:pathData="M64,50.5h2.6v7h-2.6z M68.4,48h2.6v12h-2.6z M72.8,51h2.6v6h-2.6z" />
+</vector>
