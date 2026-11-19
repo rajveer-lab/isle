@@ -199,6 +199,13 @@
                 </StackPanel>
                 <CheckBox x:Name="FadeHover" Style="{StaticResource Switch}" HorizontalAlignment="Right" VerticalAlignment="Center"/>
               </Grid>
+              <Grid Margin="0,4,0,8">
+                <StackPanel Margin="0,0,60,0">
+                  <TextBlock Text="Glass look" Style="{StaticResource Label}"/>
+                  <TextBlock Text="The open island is frosted glass: what's behind it shows through, blurred." Style="{StaticResource Sub}" Margin="0,1,0,0"/>
+                </StackPanel>
+                <CheckBox x:Name="GlassLook" Style="{StaticResource Switch}" HorizontalAlignment="Right" VerticalAlignment="Center"/>
+              </Grid>
               <Grid Margin="0,4">
                 <TextBlock Text="Start with Windows" Style="{StaticResource Label}"/>
                 <CheckBox x:Name="AutoStart" Style="{StaticResource Switch}" HorizontalAlignment="Right"/>

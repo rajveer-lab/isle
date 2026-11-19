@@ -24,6 +24,7 @@ namespace Isle
         public bool OwnVolumePopup = true;
         public bool OpenOnEdge = true;
         public bool FadeOnHover = true;
+        public bool Glass = true;
         public string BudsColor = "black";
         public readonly List<KeyValuePair<string, string>> Apps = new List<KeyValuePair<string, string>>();
 
@@ -73,6 +74,7 @@ namespace Isle
                         case "own_volume_popup": s.OwnVolumePopup = Bool(val, s.OwnVolumePopup); break;
                         case "open_trigger": s.OpenOnEdge = !val.Equals("hover", StringComparison.OrdinalIgnoreCase); break;
                         case "fade_on_hover": s.FadeOnHover = Bool(val, s.FadeOnHover); break;
+                        case "glass": s.Glass = Bool(val, s.Glass); break;
                         case "buds_color": s.BudsColor = val; break;
                         case "settings_version": hasVersion = true; version = Int(val, 1, 1, 99); break;
                     }
@@ -197,6 +199,8 @@ hide_in_fullscreen = true
 open_trigger = edge
 # the pill fades almost invisible while the cursor is over it, so the browser tab underneath shows
 fade_on_hover = true
+# the open island is frosted glass (what's behind it shows through, blurred). false = solid black
+glass = true
 
 # colour of the earbuds drawn when they connect: black | white | bronze | blue | red | silver
 buds_color = black

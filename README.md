@@ -34,6 +34,7 @@ Most "dynamic island" apps for Windows are heavy web or UWP shells that lag and 
 
 - **Lightweight.** About 0.05 % CPU when idle, with no runtime to install, because .NET Framework 4.8 already ships with Windows.
 - **Never in the way.** The small pill lets clicks pass through it to the tab underneath. It only opens when you push the cursor against the top edge, and it fades see-through while you hover.
+- **Real frosted glass.** The black pill opens into frosted glass: whatever is behind it on screen shows through, blurred, with a light rim along the edge. Windows has no backdrop blur for custom-shaped windows, so Isle makes its own.
 - **Smooth.** Spring physics morph the width, height and squircle corners in one motion, with a soft blur in between.
 - **Your phone, with no extra apps.** Isle Link is its own Bluetooth protocol, paired once and connected automatically after that. You don't need Phone Link, KDE Connect or any cloud account.
 
@@ -159,6 +160,7 @@ flowchart LR
 ```
 
 - **Island window.** A transparent, top-most tool window. It lets clicks through while compact, and it is driven by a spring simulation that animates the width, height and corner radius.
+- **Glass.** While the island is open, a background thread grabs the strip of screen behind it a few times a second. The island hides itself from that grab with `WDA_EXCLUDEFROMCAPTURE`, only for a moment, so your own screenshots still show it. The grab is shrunk with area averaging and stretched back up under a blur shader and a dark tint. Nothing is saved, and it stops as soon as the island closes.
 - **Media.** Uses Windows' media session API (`GlobalSystemMediaTransportControls`). A colour taken from the album art drives the glow and the controls.
 - **Calls.** Detected from Windows' microphone and camera usage records. Caller names and the Accept, Decline and End buttons are read from call windows and notifications through UI Automation.
 - **Isle Link.** A small line-based protocol over Bluetooth RFCOMM, carrying `HELLO`, `CLIP`, `BATT`, `RING`, `FILE`/`DATA`/`FILEEND` and `MIRROR*`. Either side can dial the other, so they reconnect on their own.
@@ -184,7 +186,12 @@ powershell -ExecutionPolicy Bypass -File build.ps1
 | `dist/Isle-Phone.apk` | The Android app, built only if the Android SDK is found |
 | `dist/IsleSetup.exe` | A single-file installer that contains everything above |
 
-Debug flags: `--pin-expanded` keeps the island open, and `--snapshot=<folder>` renders every state to PNG and exits. The screenshots in this README were made that way.
+Debug flags:
+- `--pin-expanded` keeps the island open.
+- `--snapshot=<folder>` renders every state to PNG and exits. Snapshots draw the glass over a sample wallpaper and never read the real screen.
+- `--no-media` leaves out whatever is really playing.
+
+The screenshots in this README were made with `--snapshot` and `--no-media`.
 
 ## Project structure
 
@@ -192,6 +199,7 @@ Debug flags: `--pin-expanded` keeps the island open, and `--snapshot=<folder>` r
 isle/
 ├── src/                  Windows app (C#, WPF)
 │   ├── IslandWindow.cs   the island: states, morph, HUDs, input
+│   ├── Glass.cs          frosted-glass backdrop (screen behind, blurred)
 │   ├── Island.xaml       island layout and styles
 │   ├── HubWindow.cs      the Isle app window (Hub.xaml)
 │   ├── MediaService.cs   now playing, album art, accent colour

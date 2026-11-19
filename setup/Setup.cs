@@ -64,7 +64,7 @@ namespace IsleSetup
 
     static class Installer
     {
-        public const string Version = "1.4.6";
+        public const string Version = "1.5.0";
         public static string Dir => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Programs", "Isle");
         public static string Exe => Path.Combine(Dir, "Isle.exe");
         public static string Uninstaller => Path.Combine(Dir, "Uninstall Isle.exe");

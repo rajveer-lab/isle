@@ -67,6 +67,9 @@ namespace Isle
             var fade = P<CheckBox>("FadeHover");
             fade.Checked += (s, e) => Change("fade_on_hover", "true");
             fade.Unchecked += (s, e) => Change("fade_on_hover", "false");
+            var glass = P<CheckBox>("GlassLook");
+            glass.Checked += (s, e) => Change("glass", "true");
+            glass.Unchecked += (s, e) => Change("glass", "false");
             var fs = P<CheckBox>("HideFullscreen");
             fs.Checked += (s, e) => Change("hide_in_fullscreen", "true");
             fs.Unchecked += (s, e) => Change("hide_in_fullscreen", "false");
@@ -171,6 +174,7 @@ namespace Isle
                 P<CheckBox>("HideFullscreen").IsChecked = cfg.HideInFullscreen;
                 P<CheckBox>("EdgeOpen").IsChecked = cfg.OpenOnEdge;
                 P<CheckBox>("FadeHover").IsChecked = cfg.FadeOnHover;
+                P<CheckBox>("GlassLook").IsChecked = cfg.Glass;
 
                 P<TextBlock>("PhoneTitle").Text = _phone.Configured ? _phone.Name : "Your phone";
                 P<TextBlock>("PhoneSub").Text = _phone.Configured ? _phone.StatusText : "Pair your phone with this PC over Bluetooth first";

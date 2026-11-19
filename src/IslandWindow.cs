@@ -81,6 +81,11 @@ namespace Isle
         Path _shape, _outline, _playIcon, _pauseIcon;
         Ellipse _privacyDot;
         Image _ambient, _incomingAppIcon, _callIcon;
+        // frosted glass behind the open island
+        Image _glassImage;
+        UIElement _glassHost, _glassTint, _glassSheen;
+        GlassBackdrop _glass;
+        double _glassW;
         StackPanel _expanded, _appsRow, _compactBars, _expBars, _batteryBlock, _shelfRow;
         TextBlock _idleClock, _compactTitle, _hudIcon, _hudLabel, _hudValue, _title, _artist, _sourceText, _sourceSwitch,
                   _elapsed, _remaining, _bigClock, _dateText, _batteryPct, _batteryBolt, _batteryState, _callCompactIcon, _callCompactTimer,
@@ -199,6 +204,9 @@ namespace Isle
             _progressRow = Part<Grid>("ProgressRow"); _seekArea = Part<Grid>("SeekArea"); _volArea = Part<Grid>("VolArea");
             _shape = Part<Path>("Shape"); _outline = Part<Path>("Outline"); _playIcon = Part<Path>("PlayIcon"); _pauseIcon = Part<Path>("PauseIcon");
             _privacyDot = Part<Ellipse>("PrivacyDot");
+            _glassImage = Part<Image>("GlassImage"); _glassHost = Part<UIElement>("GlassHost");
+            _glassTint = Part<UIElement>("GlassTint"); _glassSheen = Part<UIElement>("GlassSheen");
+            _glass = new GlassBackdrop(this, frame => _glassImage.Source = frame);
             _ambient = Part<Image>("Ambient"); _incomingAppIcon = Part<Image>("IncomingAppIcon"); _callIcon = Part<Image>("CallIcon");
             _expanded = Part<StackPanel>("Expanded"); _appsRow = Part<StackPanel>("AppsRow"); _compactBars = Part<StackPanel>("CompactBars");
             _expBars = Part<StackPanel>("ExpBars"); _batteryBlock = Part<StackPanel>("BatteryBlock"); _shelfRow = Part<StackPanel>("ShelfRow");
@@ -430,7 +438,7 @@ namespace Isle
             _audio.VolumeChanged += OnVolumeChanged;
             _audio.MicChanged += OnMicChanged;
             _audio.OutputDeviceSwitched += OnOutputSwitched;
-            _media.Changed += OnMediaChanged;
+            if (!App.NoMedia) _media.Changed += OnMediaChanged;   // --no-media: demo snapshots without what's really playing
             _calls.Changed += OnCallChanged;
             _brightness.Changed += OnBrightness;
             _phone.OnlineChanged += OnPhoneOnline;
@@ -758,13 +766,66 @@ namespace Isle
                 _w.Target = ExpandedWidth;
                 _h.Target = _expandedH;
                 _r.Target = ExpandedRadius;
+                UpdateGlass();
             }
             else
             {
                 var t = CompactTarget();
                 _w.Target = t.W; _h.Target = t.H; _r.Target = t.R;
+                _glass.Stop();
             }
             StartAnimating();
+        }
+
+        bool GlassOn => _cfg.Glass;
+
+        /// <summary>Tells the glass which strip of screen sits behind the open island and starts refreshing it.</summary>
+        static BitmapSource SampleWallpaper()
+        {
+            var dv = new DrawingVisual();
+            using (var dc = dv.RenderOpen())
+            {
+                dc.DrawRectangle(new LinearGradientBrush(Color.FromRgb(0x1B, 0x2A, 0x6B), Color.FromRgb(0x6A, 0x1F, 0x5E), 0), null, new Rect(0, 0, 96, 60));
+                dc.DrawEllipse(new SolidColorBrush(Color.FromRgb(0xF2, 0x8C, 0x38)), null, new Point(20, 46), 22, 16);
+                dc.DrawEllipse(new SolidColorBrush(Color.FromRgb(0x2F, 0xB8, 0xD8)), null, new Point(78, 14), 24, 14);
+                dc.DrawRectangle(new SolidColorBrush(Color.FromArgb(0xC0, 0xF4, 0xF4, 0xF6)), null, new Rect(30, 0, 40, 9));
+                dc.DrawEllipse(new SolidColorBrush(Color.FromRgb(0xE8, 0x4A, 0x8A)), null, new Point(60, 50), 12, 10);
+            }
+            var rtb = new RenderTargetBitmap(96, 60, 96, 96, PixelFormats.Pbgra32);
+            rtb.Render(dv);
+            rtb.Freeze();
+            return rtb;
+        }
+
+        void UpdateGlass()
+        {
+            if (!GlassOn || _hwnd == IntPtr.Zero || !IsVisible) { _glass.Stop(); return; }
+            if (App.SnapshotDir != null)
+            {
+                // snapshots never read the real screen: glass over a sample wallpaper instead
+                const double pad = 28;
+                _glassImage.Width = _glassW = _w.Target + 2 * pad;
+                _glassImage.Height = _h.Target + pad;
+                if (_glassImage.Source == null) _glassImage.Source = SampleWallpaper();
+                return;
+            }
+            try
+            {
+                const double pad = 28;   // a little extra all round so the blur has no dark edges inside the island
+                double w = _w.Target + 2 * pad, h = _h.Target + pad;
+                // the island is centred in this window and hangs from the top of the body
+                var top = _body.TranslatePoint(new Point(0, 0), this).Y;
+                double left = ActualWidth / 2 - w / 2;
+                var dpi = VisualTreeHelper.GetDpi(this);
+                var screen = PointToScreen(new Point(left, top));
+                _glassImage.Width = _glassW = w;
+                _glassImage.Height = h;
+                Canvas.SetTop(_glassImage, 0);
+                _glass.SetRect(new Int32Rect((int)Math.Round(screen.X), (int)Math.Round(screen.Y),
+                                             (int)Math.Round(w * dpi.DpiScaleX), (int)Math.Round(h * dpi.DpiScaleY)));
+                _glass.Start();
+            }
+            catch (Exception ex) { App.Log(ex); }
         }
 
         void StartAnimating()
@@ -804,7 +865,8 @@ namespace Isle
             _shape.Height = h;
             _outline.Height = h + 1;
             _shape.Data = BuildShape(w, h, r, Ear, Ear, notch, true);
-            _outline.Data = BuildShape(w, h, r, Ear, Ear, notch, !notch);
+            // the notch "ears" belong to the black pill; as it turns to glass they shrink away with it
+            _outline.Data = BuildShape(w, h, r, Ear, Ear * (1 - GlassAmount(h)), notch, !notch);
             _compact.Height = Math.Max(CompactH, Math.Min(h, CompactH + 5));
 
             double compactH = CompactH;
@@ -816,7 +878,14 @@ namespace Isle
             _expanded.Opacity = expandedOpacity;
             _expanded.Visibility = expandedOpacity > 0.01 ? Visibility.Visible : Visibility.Hidden;
             _expScale.ScaleX = _expScale.ScaleY = 0.9 + 0.1 * p;
-            _ambient.Opacity = 0.55 * SmoothStep(0.2, 1, p);
+            // glass: the black pill turns into frosted glass as it opens (only once a backdrop frame exists)
+            double g = GlassAmount(h);
+            _glassHost.Opacity = _glassTint.Opacity = _glassSheen.Opacity = g;
+            Canvas.SetLeft(_glassImage, (w - _glassW) / 2);
+            _shape.Opacity = 1 - g;
+            _outline.Opacity = 0.3 + 0.7 * g;
+            // album colour: a soft wash over the glass, or the full glow on the solid black island
+            _ambient.Opacity = (g > 0 ? 0.24 : 0.55) * SmoothStep(0.2, 1, p);
 
             // iOS-style content blur while the island morphs
             ApplyBlur(_compact, _compactBlur, compactOpacity > 0.01 ? 12 * SmoothStep(0, 0.28, p) : 0);
@@ -826,6 +895,15 @@ namespace Isle
             _dotShift.X = w / 2 + 13;
             _dotShift.Y = Math.Min(h, CompactH) / 2 - 3.5;
             _privacyDot.Opacity = compactOpacity;
+        }
+
+        /// <summary>0 = solid black pill, 1 = fully frosted glass; follows how far the island has opened.</summary>
+        double GlassAmount(double h)
+        {
+            if (!GlassOn || _glassImage.Source == null) return 0;
+            double compactH = CompactH;
+            double p = _expandedH > compactH + 1 ? Clamp01((h - compactH - 5) / (_expandedH - compactH - 5)) : 0;
+            return SmoothStep(0.04, 0.6, p);
         }
 
         static void ApplyBlur(UIElement el, BlurEffect fx, double radius)

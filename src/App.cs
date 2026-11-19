@@ -8,8 +8,8 @@ using System.Windows;
 [assembly: System.Runtime.Versioning.TargetFramework(".NETFramework,Version=v4.8", FrameworkDisplayName = ".NET Framework 4.8")]
 [assembly: AssemblyTitle("Isle")]
 [assembly: AssemblyProduct("Isle - personal dynamic island")]
-[assembly: AssemblyVersion("1.4.6.0")]
-[assembly: AssemblyFileVersion("1.4.6.0")]
+[assembly: AssemblyVersion("1.5.0.0")]
+[assembly: AssemblyFileVersion("1.5.0.0")]
 [assembly: AssemblyCompany("Isle")]
 [assembly: AssemblyDescription("Isle - dynamic island for Windows")]
 
@@ -19,7 +19,7 @@ namespace Isle
     {
         static EventWaitHandle _quit, _show, _send;
         static string SendQueue => Path.Combine(Settings.Dir, "send-queue.txt");
-        public static bool PinExpanded, Welcome, Quitting;
+        public static bool PinExpanded, Welcome, Quitting, NoMedia;
 
         public static void Quit()
         {
@@ -56,6 +56,7 @@ namespace Isle
 
             PinExpanded = Array.Exists(args, a => a.Equals("--pin-expanded", StringComparison.OrdinalIgnoreCase));
             Welcome = Array.Exists(args, a => a.Equals("--welcome", StringComparison.OrdinalIgnoreCase));
+            NoMedia = Array.Exists(args, a => a.Equals("--no-media", StringComparison.OrdinalIgnoreCase));
             SnapshotDir = Array.Find(args, a => a.StartsWith("--snapshot=", StringComparison.OrdinalIgnoreCase))?.Substring(11).Trim('"');
 
             System.Windows.Forms.Application.EnableVisualStyles();
