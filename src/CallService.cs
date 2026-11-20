@@ -106,6 +106,7 @@ namespace Isle
             Action kick = () => _ui.BeginInvoke(new Action(() => { _debounce.Stop(); _debounce.Start(); }));
             _micWatch = new RegWatch(ConsentStore + "microphone", kick);
             _camWatch = new RegWatch(ConsentStore + "webcam", kick);
+            SensorUse.StartCameraWatch(kick);
             ScanUsage();
             _poll.Start();
         }
@@ -173,11 +174,45 @@ namespace Isle
             }
         }
 
+        // when each live (process-based) use was first seen, so "call started" times stay put between scans
+        readonly Dictionary<string, DateTime> _liveSince = new Dictionary<string, DateTime>();
+
+        /// <summary>
+        /// Registry (works on most builds, but newer Windows stopped writing it) merged with what is live right now:
+        /// Core Audio capture sessions for the mic, Media Foundation's sensor monitor for the camera.
+        /// </summary>
+        List<AppUse> Usage(string capability, HashSet<uint> livePids, HashSet<string> seen)
+        {
+            var list = Scan(capability);
+            foreach (uint pid in livePids)
+            {
+                string exe = SensorUse.ExePath(pid);
+                string name = exe.Length > 0 ? Path.GetFileNameWithoutExtension(exe) : ProcessName(pid);
+                if (name.Length == 0 || name.Equals("Isle", StringComparison.OrdinalIgnoreCase)) continue;
+                var use = new AppUse { Key = exe.Length > 0 ? exe.Replace('\\', '#') : name, Name = name, ExePath = exe, Processes = new[] { name } };
+                var known = Match(exe.Length > 0 ? exe : name);
+                if (known != null) { use.Name = known.Name; use.IsCallApp = known.Call; use.Processes = known.Processes; }
+                if (list.Any(u => u.Name == use.Name)) continue;   // the registry already has it (older Windows)
+                seen.Add(use.Key);
+                if (!_liveSince.TryGetValue(use.Key, out var since)) _liveSince[use.Key] = since = DateTime.Now;
+                use.Start = since;
+                list.Add(use);
+            }
+            return list;
+        }
+
+        static string ProcessName(uint pid)
+        {
+            try { return Process.GetProcessById((int)pid).ProcessName; } catch { return ""; }
+        }
+
         void ScanUsage()
         {
             if (_demo) return;
-            var mic = Scan("microphone");
-            var cam = Scan("webcam");
+            var seen = new HashSet<string>();
+            var mic = Usage("microphone", SensorUse.MicPids(), seen);
+            var cam = Usage("webcam", SensorUse.CameraPids(), seen);
+            foreach (var k in _liveSince.Keys.Where(k => !seen.Contains(k)).ToList()) _liveSince.Remove(k);
             bool changed = MicInUse != mic.Count > 0 || CameraInUse != cam.Count > 0;
             MicInUse = mic.Count > 0;
             CameraInUse = cam.Count > 0;
@@ -270,7 +305,7 @@ namespace Isle
         {
             if (_demo) return;
             _ticks++;
-            if (_ticks % 20 == 0) ScanUsage();   // safety net in case a registry notification was missed
+            ScanUsage();   // live mic sessions have no change event we listen to, so check every second (~2 ms)
 
             var windows = Native.VisibleWindows();
             LogNewCallWindows(windows);
@@ -334,7 +369,6 @@ namespace Isle
             bool anyButton = read.Accept != null || read.Decline != null;
             bool buttons = read.Accept != null && read.Decline != null;
             bool isCall = buttons || (ring && anyButton) || (ring && HasRingWords(title)) || (weak && (anyButton || HasCallWords(title)));
-            if (weak) App.Log(new Exception("call window read: title='" + title + "' buttons=[" + string.Join(", ", read.Buttons) + "] lines=" + string.Join(" | ", read.Lines.Take(8)) + " -> incoming=" + isCall));
             if (!isCall) { _notACall[window] = DateTime.Now; return; }
 
             // app name: toast "Notification from X" / known app in the text / the window's process
@@ -486,6 +520,7 @@ namespace Isle
             _poll.Stop();
             _micWatch?.Dispose();
             _camWatch?.Dispose();
+            SensorUse.StopCameraWatch();
         }
     }
 

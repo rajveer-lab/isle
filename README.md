@@ -146,7 +146,7 @@ flowchart LR
     subgraph Windows["Windows PC"]
         GSMTC["Media sessions<br/>(GSMTC)"] --> Island
         Audio["Core Audio<br/>volume · mic · peak"] --> Island
-        Calls["Mic/camera registry<br/>+ UI Automation"] --> Island
+        Calls["Mic sessions · camera monitor<br/>+ UI Automation"] --> Island
         BT["Bluetooth LE / RFCOMM<br/>battery · devices"] --> Island
         Island["Isle<br/>(WPF, layered window)"]
         Hub["Isle app window"] --- Island
@@ -162,7 +162,7 @@ flowchart LR
 - **Island window.** A transparent, top-most tool window. It lets clicks through while compact, and it is driven by a spring simulation that animates the width, height and corner radius.
 - **Glass.** While the island is open, a background thread grabs the strip of screen behind it a few times a second. The island hides itself from that grab with `WDA_EXCLUDEFROMCAPTURE`, only for a moment, so your own screenshots still show it. The grab is shrunk with area averaging and stretched back up under a blur shader and a dark tint. Nothing is saved, and it stops as soon as the island closes.
 - **Media.** Uses Windows' media session API (`GlobalSystemMediaTransportControls`). A colour taken from the album art drives the glow and the controls.
-- **Calls.** Detected from Windows' microphone and camera usage records. Caller names and the Accept, Decline and End buttons are read from call windows and notifications through UI Automation.
+- **Calls and the privacy dot.** Mic use comes from live Core Audio capture sessions and camera use from Media Foundation's sensor activity monitor, with Windows' privacy usage records as a fallback. Caller names and the Accept, Decline and End buttons are read from call windows and notifications through UI Automation.
 - **Isle Link.** A small line-based protocol over Bluetooth RFCOMM, carrying `HELLO`, `CLIP`, `BATT`, `RING`, `FILE`/`DATA`/`FILEEND` and `MIRROR*`. Either side can dial the other, so they reconnect on their own.
 - **Phone app.** About 1,000 lines of plain Java built straight against the Android SDK, with no Gradle and no libraries. The APK is about 40 KB.
 
@@ -204,6 +204,7 @@ isle/
 │   ├── HubWindow.cs      the Isle app window (Hub.xaml)
 │   ├── MediaService.cs   now playing, album art, accent colour
 │   ├── CallService.cs    call detection and controls
+│   ├── SensorUse.cs      live mic / camera use (privacy dot)
 │   ├── AudioService.cs   volume, mic mute, peak meter
 │   ├── IsleLink.cs       Bluetooth protocol (laptop side)
 │   ├── Phone.cs          phone status, clipboard, file sending
