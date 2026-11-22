@@ -107,6 +107,24 @@ namespace Isle
         [DllImport("user32.dll")] static extern bool GetMonitorInfo(IntPtr m, ref MONITORINFO mi);
         [DllImport("user32.dll", CharSet = CharSet.Unicode)] static extern int GetClassName(IntPtr h, StringBuilder sb, int max);
 
+        /// <summary>"(foreground: chrome [Chrome_WidgetWin_1] 1938x1038)" for the log.</summary>
+        public static string ForegroundInfo()
+        {
+            try
+            {
+                IntPtr fg = GetForegroundWindow();
+                if (fg == IntPtr.Zero) return "(foreground: none)";
+                var sb = new StringBuilder(64);
+                GetClassName(fg, sb, sb.Capacity);
+                GetWindowThreadProcessId(fg, out uint pid);
+                string name;
+                try { name = System.Diagnostics.Process.GetProcessById((int)pid).ProcessName; } catch { name = "pid " + pid; }
+                GetWindowRect(fg, out RECT r);
+                return string.Format("(foreground: {0} [{1}] {2}x{3})", name, sb, r.Right - r.Left, r.Bottom - r.Top);
+            }
+            catch { return "(foreground: ?)"; }
+        }
+
         public static bool IsFullscreenAppOnMonitorOf(IntPtr self)
         {
             IntPtr fg = GetForegroundWindow();

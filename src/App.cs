@@ -8,8 +8,8 @@ using System.Windows;
 [assembly: System.Runtime.Versioning.TargetFramework(".NETFramework,Version=v4.8", FrameworkDisplayName = ".NET Framework 4.8")]
 [assembly: AssemblyTitle("Isle")]
 [assembly: AssemblyProduct("Isle - personal dynamic island")]
-[assembly: AssemblyVersion("1.5.1.0")]
-[assembly: AssemblyFileVersion("1.5.1.0")]
+[assembly: AssemblyVersion("1.5.2.0")]
+[assembly: AssemblyFileVersion("1.5.2.0")]
 [assembly: AssemblyCompany("Isle")]
 [assembly: AssemblyDescription("Isle - dynamic island for Windows")]
 
@@ -123,12 +123,25 @@ namespace Isle
         public static void Log(Exception ex)
         {
             if (ex == null) return;
+            Write(ex + Environment.NewLine + Environment.NewLine);
+        }
+
+        /// <summary>One line in isle.log about what the island did (hidden, shown, repaired), to explain it later.</summary>
+        public static void Note(string text) => Write(text + Environment.NewLine);
+
+        static readonly object LogLock = new object();
+
+        static void Write(string text)
+        {
             try
             {
-                Directory.CreateDirectory(Settings.Dir);
-                string path = Path.Combine(Settings.Dir, "isle.log");
-                if (File.Exists(path) && new FileInfo(path).Length > 512 * 1024) File.Delete(path);
-                File.AppendAllText(path, DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss") + "  " + ex + Environment.NewLine + Environment.NewLine);
+                lock (LogLock)
+                {
+                    Directory.CreateDirectory(Settings.Dir);
+                    string path = Path.Combine(Settings.Dir, "isle.log");
+                    if (File.Exists(path) && new FileInfo(path).Length > 512 * 1024) File.Delete(path);
+                    File.AppendAllText(path, DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss") + "  " + text);
+                }
             }
             catch { }
         }

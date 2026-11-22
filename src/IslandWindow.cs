@@ -72,7 +72,7 @@ namespace Isle
         readonly TranslateTransform _dotShift = new TranslateTransform();
         readonly ScaleTransform _acceptPulse = new ScaleTransform(1, 1);
 
-        DispatcherTimer _hudTimer, _peekTimer, _progressTimer, _meterTimer, _clockTimer, _fsTimer, _cursorTimer, _callTimer, _dropLeaveTimer;
+        DispatcherTimer _hudTimer, _peekTimer, _progressTimer, _meterTimer, _clockTimer, _fsTimer, _cursorTimer, _callTimer, _dropLeaveTimer, _healthTimer;
 
         // XAML parts
         FrameworkElement _root;
@@ -294,6 +294,7 @@ namespace Isle
             _clockTimer = Timer(60000, (s, e) => UpdateClock(), DispatcherPriority.Background);
             _fsTimer = Timer(1000, (s, e) => CheckFullscreen(), DispatcherPriority.Background);
             _cursorTimer = Timer(250, (s, e) => OnCursorTick(), DispatcherPriority.Input);
+            _healthTimer = Timer(2000, (s, e) => HealthCheck(), DispatcherPriority.Background);
             _callTimer = Timer(1000, (s, e) => UpdateCallTimer(), DispatcherPriority.Background);
             _dropLeaveTimer = Timer(250, (s, e) => { _dropLeaveTimer.Stop(); _dropActive = false; RefreshExpandedKind(); });
             _phoneFlash = Timer(3200, (s, e) => { _phoneFlash.Stop(); UpdatePhoneUi(); });
@@ -431,6 +432,7 @@ namespace Isle
             _lastOnAc = Native.GetPower().OnAc;
             _fsTimer.Start();
             _cursorTimer.Start();
+            StartSelfCheck();
             InstallVolumeKeys();
             Closed += (s, a) => RemoveVolumeKeys();
             if (App.SnapshotDir == null) SetBudsConnected(IsHeadphones(_audio.DeviceName) ? _audio.DeviceName : "");
@@ -446,10 +448,12 @@ namespace Isle
             _phone.ClipboardFromPhone += OnPhoneClipboard;
             SystemEvents.PowerModeChanged += OnPowerModeChanged;
             SystemEvents.DisplaySettingsChanged += OnDisplayChanged;
+            SystemEvents.SessionSwitch += OnSessionSwitch;
             Closed += (s, a) =>
             {
                 SystemEvents.PowerModeChanged -= OnPowerModeChanged;
                 SystemEvents.DisplaySettingsChanged -= OnDisplayChanged;
+                SystemEvents.SessionSwitch -= OnSessionSwitch;
             };
 
             await Dispatcher.InvokeAsync(() => { BuildApps(); BuildShelf(); }, DispatcherPriority.Background);
@@ -464,7 +468,92 @@ namespace Isle
             if (App.SnapshotDir != null) RunSnapshots();
         }
 
-        void OnDisplayChanged(object sender, EventArgs e) => Dispatcher.BeginInvoke(new Action(PlaceOnScreen));
+        void OnDisplayChanged(object sender, EventArgs e) => Dispatcher.BeginInvoke(new Action(() => Refresh("display settings changed")));
+
+        // =====================================================================================
+        //  self-check: the island must never sit there invisible while Isle is running
+        // =====================================================================================
+
+        DateTime _lastFrameAt;
+        bool _sessionLocked;
+        string _suspect, _lastHealNote;
+        DateTime _lastHealNoteAt;
+
+        void StartSelfCheck()
+        {
+            if (App.SnapshotDir != null) return;
+            uint upSec = unchecked((uint)Environment.TickCount) / 1000;
+            App.Note(string.Format("started (Windows up {0}m {1}s) {2}", upSec / 60, upSec % 60, Native.ForegroundInfo()));
+            _healthTimer.Start();
+            // right after sign-in Windows is still setting up the display: redraw once it has settled
+            foreach (int sec in new[] { 20, 90 })
+            {
+                var once = Timer(sec * 1000, null, DispatcherPriority.Background);
+                once.Tick += (s, e) => { once.Stop(); Refresh(null); };
+                once.Start();
+            }
+        }
+
+        void OnSessionSwitch(object sender, SessionSwitchEventArgs e)
+        {
+            Dispatcher.BeginInvoke(new Action(() =>
+            {
+                if (e.Reason == SessionSwitchReason.SessionLock) { _sessionLocked = true; return; }
+                if (e.Reason == SessionSwitchReason.SessionUnlock || e.Reason == SessionSwitchReason.ConsoleConnect ||
+                    e.Reason == SessionSwitchReason.RemoteConnect)
+                {
+                    _sessionLocked = false;
+                    Refresh("session " + e.Reason);
+                }
+            }));
+        }
+
+        /// <summary>Re-places, re-tops and redraws the island; `why` is logged when given.</summary>
+        void Refresh(string why)
+        {
+            if (_hwnd == IntPtr.Zero) return;
+            if (why != null) App.Note("refresh: " + why);
+            PlaceOnScreen();
+            Native.ReassertTopmost(_hwnd);
+            Retarget();
+            _islandRoot.InvalidateVisual();
+            InvalidateVisual();
+        }
+
+        void HealthCheck()
+        {
+            if (_hwnd == IntPtr.Zero || _sessionLocked) return;
+            string why = null;
+            if (!Native.IsWindowVisible(_hwnd)) why = "window not visible";
+            else if (!_hiddenForFullscreen && _islandRoot.Visibility != Visibility.Visible) why = "island hidden but nothing is fullscreen";
+            else if (!_seeThrough && _islandRoot.Opacity < 0.5) why = "island stuck faded (opacity " + _islandRoot.Opacity.ToString("0.00") + ")";
+            else if (_animating && (DateTime.Now - _lastFrameAt).TotalSeconds > 3) why = "no frames drawn for " + (int)(DateTime.Now - _lastFrameAt).TotalSeconds + "s";
+            else if (!_animating && (Math.Abs(_w.Value - _w.Target) > 1 || Math.Abs(_h.Value - _h.Target) > 1))
+                why = string.Format("shape stuck at {0:0}x{1:0}, should be {2:0}x{3:0}", _w.Value, _h.Value, _w.Target, _h.Target);
+
+            // a fade or morph can be caught mid-way: only act when the same problem shows twice in a row
+            if (why == null || why != _suspect) { _suspect = why; return; }
+            _suspect = null;
+            Heal(why);
+        }
+
+        void Heal(string why)
+        {
+            // log each kind of problem at most once a minute, so a repeating fault can't flood the log
+            if (why != _lastHealNote || (DateTime.Now - _lastHealNoteAt).TotalSeconds > 60)
+            {
+                App.Note("self-check: " + why + " -> repaired. " + Native.ForegroundInfo());
+                _lastHealNote = why;
+                _lastHealNoteAt = DateTime.Now;
+            }
+            if (!Native.IsWindowVisible(_hwnd)) Show();
+            if (!_hiddenForFullscreen) _islandRoot.Visibility = Visibility.Visible;
+            if (!_seeThrough) { _islandRoot.BeginAnimation(OpacityProperty, null); _islandRoot.Opacity = 1; }
+            if (_animating) { CompositionTarget.Rendering -= OnRendering; _animating = false; }
+            _w.Snap(_w.Target); _h.Snap(_h.Target); _r.Snap(_r.Target);
+            ApplyFrame();
+            Refresh(null);
+        }
 
         void PlaceOnScreen()
         {
@@ -833,11 +922,13 @@ namespace Isle
             if (_animating) return;
             _animating = true;
             _lastTick = TimeSpan.Zero;
+            _lastFrameAt = DateTime.Now;
             CompositionTarget.Rendering += OnRendering;
         }
 
         void OnRendering(object sender, EventArgs e)
         {
+            _lastFrameAt = DateTime.Now;
             var now = ((RenderingEventArgs)e).RenderingTime;
             if (now == _lastTick) return;
             double dt = _lastTick == TimeSpan.Zero ? 1.0 / 60 : (now - _lastTick).TotalSeconds;
@@ -1814,6 +1905,7 @@ namespace Isle
 
         void OnPowerModeChanged(object sender, PowerModeChangedEventArgs e)
         {
+            if (e.Mode == PowerModes.Resume) { Dispatcher.BeginInvoke(new Action(() => Refresh("woke from sleep"))); return; }
             if (e.Mode != PowerModes.StatusChange) return;
             Dispatcher.BeginInvoke(new Action(() =>
             {
@@ -1873,6 +1965,7 @@ namespace Isle
         void SetFullscreenHidden(bool hide)
         {
             _hiddenForFullscreen = hide;
+            App.Note(hide ? "hidden: fullscreen " + Native.ForegroundInfo() : "shown again after fullscreen");
             if (hide && _mode == Mode.Expanded) Collapse();
             _islandRoot.Visibility = hide ? Visibility.Hidden : Visibility.Visible;
             if (!hide) Native.ReassertTopmost(_hwnd);
