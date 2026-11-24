@@ -326,6 +326,7 @@ namespace Isle
             _prevButton.Click += (s, e) => _media.Previous();
             _nextButton.Click += (s, e) => _media.Next();
             _likeButton.Click += (s, e) => { _media.ToggleLike(); PopLike(); };
+            Part<Button>("DismissButton").Click += (s, e) => _media.Dismiss();
             _sourceChip.Click += (s, e) =>
             {
                 if (_media.State.Count > 1) SwitchSource(+1);

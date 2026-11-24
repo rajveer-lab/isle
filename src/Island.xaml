@@ -402,6 +402,7 @@
                          Foreground="#A6FFFFFF" TextTrimming="CharacterEllipsis"/>
             </StackPanel>
             <StackPanel Grid.Column="2" VerticalAlignment="Top" HorizontalAlignment="Right" Margin="0,2,0,0">
+              <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
               <Button x:Name="SourceChip" Style="{StaticResource ChipButton}" HorizontalAlignment="Right">
                 <StackPanel Orientation="Horizontal">
                   <TextBlock x:Name="SourceSwitch" FontFamily="{StaticResource UiFont}" FontSize="10.5" FontWeight="SemiBold" Foreground="#8CFFFFFF"
@@ -411,6 +412,9 @@
                              VerticalAlignment="Center"/>
                 </StackPanel>
               </Button>
+              <Button x:Name="DismissButton" Style="{StaticResource CircleButton}" Width="24" Height="24" FontSize="9" Margin="2,0,-6,0"
+                      Foreground="#8CFFFFFF" Content="&#xE711;" ToolTip="Remove from Isle (it comes back if it plays again)"/>
+              </StackPanel>
               <StackPanel x:Name="ExpBars" Orientation="Horizontal" HorizontalAlignment="Right" Height="16" Margin="0,12,6,0"/>
             </StackPanel>
           </Grid>

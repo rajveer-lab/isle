@@ -69,6 +69,8 @@ namespace Isle
         object _cur, _pinned;
         int _propsVersion;
         string _tabArtUrl;
+        // players / tabs you hid with the island's x: they stay hidden until they start playing again
+        readonly HashSet<string> _dismissed = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
         public MediaState State { get; private set; } = new MediaState();
         public event Action<MediaChange> Changed;
@@ -104,8 +106,10 @@ namespace Isle
             IReadOnlyList<GlobalSystemMediaTransportControlsSession> list = null;
             try { list = _mgr.GetSessions(); } catch (Exception ex) { App.Log(ex); }
             if (list != null) foreach (var s in list) Hook(s);
+            var all = AllItems();
             foreach (var key in _wasPlaying.Keys.ToList())
-                if (!Items().Any(s => ReferenceEquals(s, key))) _wasPlaying.Remove(key);
+                if (!all.Any(s => ReferenceEquals(s, key))) _wasPlaying.Remove(key);
+            foreach (var s in _sessions) if (!_wasPlaying.ContainsKey(s)) _wasPlaying[s] = IsPlaying(s);
             Pick(false);
         }
 
@@ -143,12 +147,37 @@ namespace Isle
             return false;
         }
 
-        List<object> Items()
+        /// <summary>Everything that can be shown, hidden ones included.</summary>
+        List<object> AllItems()
         {
             var items = new List<object>();
             foreach (var s in _sessions) if (!CoveredByExtension(s)) items.Add(s);
             if (_browser != null) items.AddRange(_browser.Tabs);
             return items;
+        }
+
+        /// <summary>What you can slide through: everything except what you hid.</summary>
+        List<object> Items() => AllItems().Where(o => !_dismissed.Contains(DismissKey(o) ?? "")).ToList();
+
+        static string DismissKey(object o)
+        {
+            if (o is BrowserTab t) return "tab:" + t.Id;
+            if (o is GlobalSystemMediaTransportControlsSession s)
+            {
+                try { return "app:" + (s.SourceAppUserModelId ?? ""); } catch { return null; }
+            }
+            return null;
+        }
+
+        /// <summary>Hides what's shown now (a tab or an app) until it starts playing again.</summary>
+        public void Dismiss()
+        {
+            string key = DismissKey(_cur);
+            if (key == null) return;
+            _dismissed.Add(key);
+            _pinned = null;
+            _cur = null;
+            Pick(false);
         }
 
         bool Has(object o) => o != null && Items().Any(x => ReferenceEquals(x, o));
@@ -263,8 +292,12 @@ namespace Isle
             _wasPlaying[s] = playing;
             if (!ReferenceEquals(s, _cur))
             {
-                // another app just started playing -> follow it (like the phone island does)
-                if (playing && !was && Has(s)) { _pinned = null; _cur = s; LoadCurrent(); }
+                // another app just started playing -> follow it (like the phone island does); a hidden one comes back
+                if (playing && !was)
+                {
+                    _dismissed.Remove(DismissKey(s) ?? "");
+                    if (Has(s)) { _pinned = null; _cur = s; LoadCurrent(); }
+                }
                 return;
             }
             ReadPlayback(s, State);
@@ -316,16 +349,19 @@ namespace Isle
         void OnTabs()
         {
             if (_mgr == null) return;
-            var items = Items();
-            // a tab that just started playing takes over, like an app does
-            foreach (var t in items.OfType<BrowserTab>())
+            // a tab that just started playing takes over, like an app does (and comes back if you'd hidden it)
+            var allTabs = _browser.Tabs.ToList();
+            foreach (var t in allTabs)
             {
                 _wasPlaying.TryGetValue(t, out bool was);
                 _wasPlaying[t] = t.Playing;
-                if (t.Playing && !was && !ReferenceEquals(t, _cur)) { _pinned = null; _cur = t; LoadCurrent(); return; }
+                if (!t.Playing || was) continue;
+                _dismissed.Remove(DismissKey(t));
+                if (!ReferenceEquals(t, _cur)) { _pinned = null; _cur = t; LoadCurrent(); return; }
             }
+            foreach (var key in _wasPlaying.Keys.OfType<BrowserTab>().Where(t => !allTabs.Contains(t)).ToList()) _wasPlaying.Remove(key);
+            var items = Items();
             if (!items.Any(x => ReferenceEquals(x, _cur))) { Pick(false); return; }
-            foreach (var key in _wasPlaying.Keys.OfType<BrowserTab>().Where(t => !items.Contains(t)).ToList()) _wasPlaying.Remove(key);
 
             if (_cur is BrowserTab cur)
             {
