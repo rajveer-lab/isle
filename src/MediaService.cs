@@ -20,9 +20,9 @@ namespace Isle
     {
         public bool HasSession;
         public string Title = "", Artist = "", Album = "", Source = "", SourceId = "";
-        public BitmapSource Art, Ambient;
+        public BitmapSource Art, Ambient, SourceIcon;
         public Color Accent = MediaService.DefaultAccent;
-        public bool Playing, CanToggle, CanPrev, CanNext, CanSeek;
+        public bool Playing, CanToggle, CanPrev, CanNext, CanSeek, CanLike, Liked;
         public TimeSpan Start, End, Position;
         public DateTimeOffset Updated;
         public double Rate = 1;
@@ -52,26 +52,41 @@ namespace Isle
     }
 
     /// <summary>Wraps Windows' Global System Media Transport Controls: every app that shows up in the
-    /// Windows media flyout (Spotify, Chrome/YouTube, Edge, Media Player, ...) shows up here.</summary>
+    /// Windows media flyout (Spotify, Chrome/YouTube, Edge, Media Player, ...) shows up here.
+    /// A browser only shows Windows its latest tab, so with the Isle extension each playing tab is its own entry
+    /// (a <see cref="BrowserTab"/>) and the browser's own Windows session is left out.</summary>
     sealed class MediaService
     {
         public static readonly Color DefaultAccent = Color.FromRgb(0x7C, 0xF2, 0xC2);
 
         readonly Dispatcher _ui;
+        readonly BrowserBridge _browser;
         GlobalSystemMediaTransportControlsSessionManager _mgr;
         readonly List<GlobalSystemMediaTransportControlsSession> _sessions = new List<GlobalSystemMediaTransportControlsSession>();
         readonly List<Action> _unsubscribe = new List<Action>();
         readonly Dictionary<object, bool> _wasPlaying = new Dictionary<object, bool>();
-        GlobalSystemMediaTransportControlsSession _cur, _pinned;
+        // what's shown: a GlobalSystemMediaTransportControlsSession or a BrowserTab
+        object _cur, _pinned;
         int _propsVersion;
+        string _tabArtUrl;
 
         public MediaState State { get; private set; } = new MediaState();
         public event Action<MediaChange> Changed;
 
-        public MediaService(Dispatcher ui) { _ui = ui; }
+        public MediaService(Dispatcher ui, BrowserBridge browser)
+        {
+            _ui = ui;
+            _browser = browser;
+        }
 
         public async Task StartAsync()
         {
+            if (_browser != null && App.SnapshotDir == null)
+            {
+                _browser.TabsChanged += OnTabs;
+                _browser.ImageArrived += OnTabImage;
+                _browser.Start();
+            }
             _mgr = await GlobalSystemMediaTransportControlsSessionManager.RequestAsync();
             _mgr.SessionsChanged += (s, e) => Post(RebuildSessions);
             _mgr.CurrentSessionChanged += (s, e) => Post(() => Pick(false));
@@ -90,7 +105,7 @@ namespace Isle
             try { list = _mgr.GetSessions(); } catch (Exception ex) { App.Log(ex); }
             if (list != null) foreach (var s in list) Hook(s);
             foreach (var key in _wasPlaying.Keys.ToList())
-                if (!_sessions.Any(s => ReferenceEquals(s, key))) _wasPlaying.Remove(key);
+                if (!Items().Any(s => ReferenceEquals(s, key))) _wasPlaying.Remove(key);
             Pick(false);
         }
 
@@ -115,31 +130,56 @@ namespace Isle
             });
         }
 
-        bool Has(GlobalSystemMediaTransportControlsSession s) => s != null && _sessions.Any(x => ReferenceEquals(x, s));
+        // ---------------- the list you can slide through ----------------
 
-        static bool IsPlaying(GlobalSystemMediaTransportControlsSession s)
+        /// <summary>A browser's own Windows session is hidden while the extension reports that browser's tabs.</summary>
+        bool CoveredByExtension(GlobalSystemMediaTransportControlsSession s)
         {
+            if (_browser == null) return false;
+            string id;
+            try { id = s.SourceAppUserModelId ?? ""; } catch { return false; }
+            foreach (var t in _browser.Tabs)
+                if (id.IndexOf(t.BrowserExe, StringComparison.OrdinalIgnoreCase) >= 0) return true;
+            return false;
+        }
+
+        List<object> Items()
+        {
+            var items = new List<object>();
+            foreach (var s in _sessions) if (!CoveredByExtension(s)) items.Add(s);
+            if (_browser != null) items.AddRange(_browser.Tabs);
+            return items;
+        }
+
+        bool Has(object o) => o != null && Items().Any(x => ReferenceEquals(x, o));
+
+        static bool IsPlaying(object o)
+        {
+            if (o is BrowserTab t) return t.Playing;
+            if (!(o is GlobalSystemMediaTransportControlsSession s)) return false;
             try { return s.GetPlaybackInfo()?.PlaybackStatus == GlobalSystemMediaTransportControlsSessionPlaybackStatus.Playing; }
             catch { return false; }
         }
 
-        /// <summary>Choose which session to show: the one you picked, else whatever is playing, else the last one shown.</summary>
+        /// <summary>Choose what to show: the one you picked, else whatever is playing, else the last one shown.</summary>
         void Pick(bool forceReload)
         {
-            if (_pinned != null && !Has(_pinned)) _pinned = null;
+            var items = Items();
+            bool In(object o) => o != null && items.Any(x => ReferenceEquals(x, o));
+            if (!In(_pinned)) _pinned = null;
             GlobalSystemMediaTransportControlsSession sys = null;
-            try { sys = _mgr.GetCurrentSession(); } catch { }
-            if (!Has(sys)) sys = _sessions.FirstOrDefault(x => sys != null && x.SourceAppUserModelId == sys.SourceAppUserModelId);
+            try { sys = _mgr?.GetCurrentSession(); } catch { }
+            if (!In(sys)) sys = items.OfType<GlobalSystemMediaTransportControlsSession>().FirstOrDefault(x => sys != null && x.SourceAppUserModelId == sys.SourceAppUserModelId);
 
             var pick = _pinned;
             if (pick == null)
             {
-                if (sys != null && IsPlaying(sys)) pick = sys;
-                else if (Has(_cur) && IsPlaying(_cur)) pick = _cur;
-                else pick = _sessions.FirstOrDefault(IsPlaying);
-                if (pick == null) pick = Has(_cur) ? _cur : sys ?? _sessions.FirstOrDefault();
+                if (In(_cur) && IsPlaying(_cur)) pick = _cur;
+                else if (sys != null && IsPlaying(sys)) pick = sys;
+                else pick = items.FirstOrDefault(IsPlaying);
+                if (pick == null) pick = In(_cur) ? _cur : (object)sys ?? items.FirstOrDefault();
             }
-            foreach (var s in _sessions) _wasPlaying[s] = IsPlaying(s);
+            foreach (var s in items) _wasPlaying[s] = IsPlaying(s);
 
             if (!ReferenceEquals(pick, _cur) || forceReload)
             {
@@ -155,14 +195,23 @@ namespace Isle
 
         void LoadCurrent()
         {
-            var s = _cur;
             var st = new MediaState();
             State = st;
-            if (s == null) { _propsVersion++; Publish(MediaChange.Session); return; }
+            if (_cur == null) { _propsVersion++; Publish(MediaChange.Session); return; }
             st.HasSession = true;
+            RefreshCounts();
+            if (_cur is BrowserTab t)
+            {
+                _propsVersion++;
+                _tabArtUrl = null;
+                ApplyTab(t, st);
+                Publish(MediaChange.Session);
+                LoadTabImages(t, true);
+                return;
+            }
+            var s = (GlobalSystemMediaTransportControlsSession)_cur;
             try { st.SourceId = s.SourceAppUserModelId ?? ""; } catch { }
             st.Source = PrettyName(st.SourceId);
-            RefreshCounts();
             ReadPlayback(s, st);
             ReadTimeline(s, st);
             Publish(MediaChange.Session);
@@ -171,8 +220,9 @@ namespace Isle
 
         void RefreshCounts()
         {
-            State.Count = _sessions.Count;
-            State.Index = Math.Max(0, _sessions.FindIndex(x => ReferenceEquals(x, _cur)));
+            var items = Items();
+            State.Count = items.Count;
+            State.Index = Math.Max(0, items.FindIndex(x => ReferenceEquals(x, _cur)));
         }
 
         static void ReadPlayback(GlobalSystemMediaTransportControlsSession s, MediaState st)
@@ -214,7 +264,7 @@ namespace Isle
             if (!ReferenceEquals(s, _cur))
             {
                 // another app just started playing -> follow it (like the phone island does)
-                if (playing && !was) { _pinned = null; _cur = s; LoadCurrent(); }
+                if (playing && !was && Has(s)) { _pinned = null; _cur = s; LoadCurrent(); }
                 return;
             }
             ReadPlayback(s, State);
@@ -261,17 +311,128 @@ namespace Isle
             catch (Exception ex) { App.Log(ex); }
         }
 
+        // ---------------- browser tabs (Isle extension) ----------------
+
+        void OnTabs()
+        {
+            if (_mgr == null) return;
+            var items = Items();
+            // a tab that just started playing takes over, like an app does
+            foreach (var t in items.OfType<BrowserTab>())
+            {
+                _wasPlaying.TryGetValue(t, out bool was);
+                _wasPlaying[t] = t.Playing;
+                if (t.Playing && !was && !ReferenceEquals(t, _cur)) { _pinned = null; _cur = t; LoadCurrent(); return; }
+            }
+            if (!items.Any(x => ReferenceEquals(x, _cur))) { Pick(false); return; }
+            foreach (var key in _wasPlaying.Keys.OfType<BrowserTab>().Where(t => !items.Contains(t)).ToList()) _wasPlaying.Remove(key);
+
+            if (_cur is BrowserTab cur)
+            {
+                var st = State;
+                string oldTitle = st.Title, oldArtist = st.Artist;
+                ApplyTab(cur, st);
+                RefreshCounts();
+                bool newTrack = st.Title != oldTitle || st.Artist != oldArtist;
+                Publish(newTrack ? MediaChange.Track : MediaChange.Playback);
+                LoadTabImages(cur, newTrack);
+            }
+            else
+            {
+                RefreshCounts();
+                Publish(MediaChange.Session);
+            }
+        }
+
+        void ApplyTab(BrowserTab t, MediaState st)
+        {
+            st.HasSession = true;
+            st.SourceId = t.BrowserExe;
+            st.Source = t.SiteName.Length > 0 ? t.SiteName : MediaService.PrettyName(t.BrowserExe);
+            st.Title = t.Title;
+            st.Artist = t.Artist == t.SiteName && t.Site == "web" ? "" : t.Artist;
+            st.Album = t.Album;
+            st.Playing = t.Playing;
+            st.CanToggle = true;
+            st.CanNext = t.CanNext;
+            st.CanPrev = t.CanPrev;
+            st.CanSeek = t.CanSeek;
+            st.CanLike = t.CanLike;
+            st.Liked = t.Liked;
+            st.Rate = t.Rate > 0 ? t.Rate : 1;
+            st.Start = TimeSpan.Zero;
+            st.End = TimeSpan.FromSeconds(Math.Max(0, t.Dur));
+            st.Position = TimeSpan.FromSeconds(Math.Max(0, t.Pos));
+            st.Updated = t.At;
+        }
+
+        void OnTabImage(string url)
+        {
+            if (_cur is BrowserTab t && (url == t.ArtUrl || url == t.IconUrl)) LoadTabImages(t, url == t.ArtUrl);
+        }
+
+        /// <summary>Album art and the site's icon arrive as bytes from the extension.</summary>
+        async void LoadTabImages(BrowserTab t, bool artMayHaveChanged)
+        {
+            var st = State;
+            if (st.SourceIcon == null)
+            {
+                var icon = Icon(_browser.Image(t.IconUrl));
+                if (icon != null) { st.SourceIcon = icon; Publish(MediaChange.Art); }
+            }
+            if (!artMayHaveChanged && t.ArtUrl == _tabArtUrl) return;
+            var bytes = _browser.Image(t.ArtUrl);
+            if (bytes == null)
+            {
+                if (t.ArtUrl != _tabArtUrl) { st.Art = null; st.Ambient = null; st.Accent = DefaultAccent; _tabArtUrl = null; Publish(MediaChange.Art); }
+                return;
+            }
+            if (t.ArtUrl == _tabArtUrl && st.Art != null) return;
+            string url = t.ArtUrl;
+            int version = ++_propsVersion;
+            try
+            {
+                var art = await ArtLoader.LoadAsync(bytes);
+                if (version != _propsVersion || !ReferenceEquals(t, _cur)) return;
+                _tabArtUrl = url;
+                st.Art = art?.Image;
+                st.Ambient = art?.Ambient;
+                st.Accent = art?.Accent ?? DefaultAccent;
+                Publish(MediaChange.Art);
+            }
+            catch (Exception ex) { App.Log(ex); }
+        }
+
+        static BitmapSource Icon(byte[] bytes)
+        {
+            if (bytes == null || bytes.Length == 0) return null;
+            try
+            {
+                var bi = new BitmapImage();
+                bi.BeginInit();
+                bi.CacheOption = BitmapCacheOption.OnLoad;
+                bi.StreamSource = new MemoryStream(bytes);
+                bi.DecodePixelWidth = 40;
+                bi.EndInit();
+                bi.Freeze();
+                return bi;
+            }
+            catch { return null; }   // e.g. an SVG favicon: the browser's own icon is used instead
+        }
+
         // ---------------- commands (optimistic so the UI reacts instantly) ----------------
 
         public async void TogglePlayPause()
         {
-            var s = _cur;
-            if (s == null) return;
+            var cur = _cur;
+            if (cur == null) return;
             var st = State;
             st.Position = st.PositionNow;
             st.Updated = DateTimeOffset.Now;
             st.Playing = !st.Playing;
             Publish(MediaChange.Playback);
+            if (cur is BrowserTab t) { _browser.Command(t, "toggle"); return; }
+            var s = (GlobalSystemMediaTransportControlsSession)cur;
             try { await s.TryTogglePlayPauseAsync(); } catch (Exception ex) { App.Log(ex); }
             await Task.Delay(900);
             if (ReferenceEquals(s, _cur)) { ReadPlayback(s, State); ReadTimeline(s, State); Publish(MediaChange.Playback); }
@@ -279,33 +440,46 @@ namespace Isle
 
         public async void Next()
         {
-            var s = _cur;
-            if (s == null) return;
+            if (_cur is BrowserTab t) { _browser.Command(t, "next"); return; }
+            if (!(_cur is GlobalSystemMediaTransportControlsSession s)) return;
             try { await s.TrySkipNextAsync(); } catch (Exception ex) { App.Log(ex); }
         }
 
         public async void Previous()
         {
-            var s = _cur;
-            if (s == null) return;
+            if (_cur is BrowserTab t) { _browser.Command(t, "prev"); return; }
+            if (!(_cur is GlobalSystemMediaTransportControlsSession s)) return;
             try { await s.TrySkipPreviousAsync(); } catch (Exception ex) { App.Log(ex); }
         }
 
         public async void Seek(TimeSpan position)
         {
-            var s = _cur;
-            if (s == null) return;
+            if (_cur == null) return;
             State.Position = position;
             State.Updated = DateTimeOffset.Now;
             Publish(MediaChange.Timeline);
+            if (_cur is BrowserTab t) { _browser.Command(t, "seek", position.TotalSeconds); return; }
+            var s = (GlobalSystemMediaTransportControlsSession)_cur;
             try { await s.TryChangePlaybackPositionAsync(position.Ticks); } catch (Exception ex) { App.Log(ex); }
         }
 
-        public void CycleSession()
+        /// <summary>Likes (or un-likes) the song in YouTube Music / the video on YouTube, without opening the tab.</summary>
+        public void ToggleLike()
         {
-            if (_sessions.Count < 2) return;
-            int i = _sessions.FindIndex(x => ReferenceEquals(x, _cur));
-            _pinned = _sessions[(i + 1) % _sessions.Count];
+            if (!(_cur is BrowserTab t) || !t.CanLike) return;
+            State.Liked = !State.Liked;
+            Publish(MediaChange.Playback);
+            _browser.Command(t, "like");
+        }
+
+        /// <summary>Switches to the next (+1) or previous (-1) player or tab.</summary>
+        public void CycleSession(int step = 1)
+        {
+            var items = Items();
+            if (items.Count < 2) return;
+            int i = items.FindIndex(x => ReferenceEquals(x, _cur));
+            int n = items.Count;
+            _pinned = items[((i + step) % n + n) % n];
             _cur = _pinned;
             LoadCurrent();
         }
@@ -320,6 +494,7 @@ namespace Isle
         /// <summary>Brings the app that is playing to the front.</summary>
         public void OpenSourceApp()
         {
+            if (_cur is BrowserTab tab) { _browser.Command(tab, "focus"); return; }
             string id = State.SourceId;
             if (string.IsNullOrEmpty(id)) return;
             try
@@ -381,6 +556,9 @@ namespace Isle
     /// <summary>Decodes album art off the UI thread, trims YouTube-style letterbox bars and picks an accent color.</summary>
     static class ArtLoader
     {
+        public static Task<ArtResult> LoadAsync(byte[] bytes) =>
+            bytes == null || bytes.Length == 0 ? Task.FromResult<ArtResult>(null) : Task.Run(() => Decode(bytes));
+
         public static async Task<ArtResult> LoadAsync(IRandomAccessStreamReference reference)
         {
             byte[] bytes;

@@ -72,6 +72,13 @@ namespace Isle
         readonly TranslateTransform _dotShift = new TranslateTransform();
         readonly ScaleTransform _acceptPulse = new ScaleTransform(1, 1);
 
+        Button _likeButton;
+        Path _likeIcon;
+        Grid _mediaInfo;
+        readonly TranslateTransform _mediaSlide = new TranslateTransform();
+        int _hwheel;
+        DateTime _lastSwitch;
+
         DispatcherTimer _hudTimer, _peekTimer, _progressTimer, _meterTimer, _clockTimer, _fsTimer, _cursorTimer, _callTimer, _dropLeaveTimer, _healthTimer;
 
         // XAML parts
@@ -182,6 +189,7 @@ namespace Isle
         {
             if (msg == 0x0312 && wParam.ToInt32() == HotkeyId) { ToggleExpanded(); handled = true; }
             else if (msg == 0x031D) _phone.OnClipboardUpdate();   // WM_CLIPBOARDUPDATE
+            else if (msg == 0x020E && OnHorizontalWheel((short)((wParam.ToInt64() >> 16) & 0xFFFF))) handled = true;   // WM_MOUSEHWHEEL
             return IntPtr.Zero;
         }
 
@@ -232,6 +240,8 @@ namespace Isle
             _openAppButton = Part<Button>("OpenAppButton"); _acceptButton = Part<Button>("AcceptButton"); _declineButton = Part<Button>("DeclineButton");
             _muteButton = Part<Button>("MuteButton"); _callOpenButton = Part<Button>("CallOpenButton"); _endButton = Part<Button>("EndButton");
             _shelfClear = Part<Button>("ShelfClear");
+            _likeButton = Part<Button>("LikeButton"); _likeIcon = Part<Path>("LikeIcon"); _mediaInfo = Part<Grid>("MediaInfo");
+            _mediaInfo.RenderTransform = _mediaSlide;
             _phoneRow = Part<Border>("PhoneRow"); _phoneName = Part<TextBlock>("PhoneName"); _phoneStatus = Part<TextBlock>("PhoneStatus");
             _dropSendText = Part<TextBlock>("DropSendText"); _phoneDot = Part<Ellipse>("PhoneDot"); _phoneInfo = Part<StackPanel>("PhoneInfo");
             _dropSend = Part<Grid>("DropSend"); _dropKeepBox = Part<Rectangle>("DropKeepBox"); _dropSendBox = Part<Rectangle>("DropSendBox");
@@ -315,9 +325,10 @@ namespace Isle
             _playButton.Click += (s, e) => _media.TogglePlayPause();
             _prevButton.Click += (s, e) => _media.Previous();
             _nextButton.Click += (s, e) => _media.Next();
+            _likeButton.Click += (s, e) => { _media.ToggleLike(); PopLike(); };
             _sourceChip.Click += (s, e) =>
             {
-                if (_media.State.Count > 1) _media.CycleSession();
+                if (_media.State.Count > 1) SwitchSource(+1);
                 else { _media.OpenSourceApp(); Collapse(); }
             };
             _artButton.Click += (s, e) => { _media.OpenSourceApp(); Collapse(); };
@@ -1168,7 +1179,7 @@ namespace Isle
             if (_expandedKind == "media") _ambient.Source = st.Ambient;
 
             // the playing app's own icon (no pill); its name only if there's no icon
-            var appIcon = SourceAppIcon(st.SourceId, st.Source);
+            var appIcon = st.SourceIcon ?? SourceAppIcon(st.SourceId, st.Source);
             var sourceIcon = (Image)_root.FindName("SourceIcon");
             sourceIcon.Source = appIcon;
             sourceIcon.Visibility = appIcon != null ? Visibility.Visible : Visibility.Collapsed;
@@ -1176,7 +1187,11 @@ namespace Isle
             _sourceText.Visibility = appIcon == null ? Visibility.Visible : Visibility.Collapsed;
             _sourceSwitch.Text = (st.Index + 1) + "/" + st.Count;
             _sourceSwitch.Visibility = st.Count > 1 ? Visibility.Visible : Visibility.Collapsed;
-            _sourceChip.ToolTip = st.Count > 1 ? st.Source + "  ·  click to switch player" : st.Source + "  ·  click to open";
+            _sourceChip.ToolTip = st.Count > 1 ? st.Source + "  ·  click or swipe sideways to switch (" + st.Count + " playing)" : st.Source + "  ·  click to open";
+            _likeButton.Visibility = st.CanLike ? Visibility.Visible : Visibility.Collapsed;
+            _likeIcon.Fill = st.Liked ? (Brush)_accent : Brushes.Transparent;
+            _likeIcon.Stroke = st.Liked ? (Brush)_accent : new SolidColorBrush(Color.FromArgb(0xF2, 255, 255, 255));
+            _likeButton.ToolTip = st.Liked ? "Liked  ·  click to remove the like" : "Like";
 
             _playIcon.Visibility = st.Playing ? Visibility.Collapsed : Visibility.Visible;
             _pauseIcon.Visibility = st.Playing ? Visibility.Visible : Visibility.Collapsed;
@@ -1202,6 +1217,41 @@ namespace Isle
                 Retarget();
 
             UpdateMeterTimer();
+        }
+
+        bool CanSwitchSource => _mode == Mode.Expanded && _expandedKind == "media" && _media.State.Count > 1;
+
+        /// <summary>Touchpad two-finger swipe sideways (or a tilt wheel) over the open player switches player / tab.</summary>
+        bool OnHorizontalWheel(int delta)
+        {
+            if (!CanSwitchSource) { _hwheel = 0; return false; }
+            if ((DateTime.Now - _lastSwitch).TotalMilliseconds < 450) { _hwheel = 0; return true; }   // one swipe = one step
+            if (Math.Sign(delta) != Math.Sign(_hwheel)) _hwheel = 0;
+            _hwheel += delta;
+            if (Math.Abs(_hwheel) < 150) return true;
+            SwitchSource(_hwheel > 0 ? +1 : -1);
+            _hwheel = 0;
+            return true;
+        }
+
+        void SwitchSource(int step)
+        {
+            _lastSwitch = DateTime.Now;
+            _media.CycleSession(step);
+            // the new track slides in from the side you swiped towards
+            var ease = new CubicEase { EasingMode = EasingMode.EaseOut };
+            _mediaSlide.BeginAnimation(TranslateTransform.XProperty, new DoubleAnimation(step * 36, 0, TimeSpan.FromMilliseconds(260)) { EasingFunction = ease });
+            _mediaInfo.BeginAnimation(OpacityProperty, new DoubleAnimation(0.15, 1, TimeSpan.FromMilliseconds(260)) { EasingFunction = ease });
+        }
+
+        void PopLike()
+        {
+            if (!(_likeIcon.RenderTransform is ScaleTransform sc)) return;
+            var a = new DoubleAnimationUsingKeyFrames { Duration = TimeSpan.FromMilliseconds(320) };
+            a.KeyFrames.Add(new EasingDoubleKeyFrame(1.3, KeyTime.FromTimeSpan(TimeSpan.FromMilliseconds(120)), new QuadraticEase()));
+            a.KeyFrames.Add(new EasingDoubleKeyFrame(1, KeyTime.FromTimeSpan(TimeSpan.FromMilliseconds(320)), new BackEase { Amplitude = 0.5 }));
+            sc.BeginAnimation(ScaleTransform.ScaleXProperty, a);
+            sc.BeginAnimation(ScaleTransform.ScaleYProperty, a);
         }
 
         readonly Dictionary<string, BitmapSource> _sourceIcons = new Dictionary<string, BitmapSource>(StringComparer.OrdinalIgnoreCase);
@@ -1659,6 +1709,13 @@ namespace Isle
 
         void OnWheel(object sender, MouseWheelEventArgs e)
         {
+            // Shift + scroll over the open player: previous / next player or tab
+            if (Keyboard.Modifiers == ModifierKeys.Shift && CanSwitchSource)
+            {
+                if ((DateTime.Now - _lastSwitch).TotalMilliseconds > 250) SwitchSource(e.Delta < 0 ? +1 : -1);
+                e.Handled = true;
+                return;
+            }
             if (!_cfg.ScrollVolume || !_audio.Available) return;
             _audio.Nudge(e.Delta / 120.0 * 0.02);
             e.Handled = true;

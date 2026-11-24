@@ -8,8 +8,8 @@ using System.Windows;
 [assembly: System.Runtime.Versioning.TargetFramework(".NETFramework,Version=v4.8", FrameworkDisplayName = ".NET Framework 4.8")]
 [assembly: AssemblyTitle("Isle")]
 [assembly: AssemblyProduct("Isle - personal dynamic island")]
-[assembly: AssemblyVersion("1.5.2.0")]
-[assembly: AssemblyFileVersion("1.5.2.0")]
+[assembly: AssemblyVersion("1.6.0.0")]
+[assembly: AssemblyFileVersion("1.6.0.0")]
 [assembly: AssemblyCompany("Isle")]
 [assembly: AssemblyDescription("Isle - dynamic island for Windows")]
 
@@ -31,6 +31,13 @@ namespace Isle
         [STAThread]
         static void Main(string[] args)
         {
+            // started by Chrome / Edge for the Isle extension (native messaging): relay to the running Isle, nothing else
+            if (args.Length > 0 && args[0].StartsWith("chrome-extension://", StringComparison.OrdinalIgnoreCase))
+            {
+                BrowserBridge.RunHost();
+                return;
+            }
+
             using var mutex = new Mutex(true, @"Local\Isle.DynamicIsland.Instance", out bool first);
             var files = Array.FindAll(args, a => !a.StartsWith("--") && File.Exists(a));
             if (!first)
@@ -73,7 +80,8 @@ namespace Isle
             {
                 var settings = Settings.Load();
                 using var audio = new AudioService(app.Dispatcher);
-                var media = new MediaService(app.Dispatcher);
+                using var browser = new BrowserBridge(app.Dispatcher);
+                var media = new MediaService(app.Dispatcher, browser);
                 using var calls = new CallService(app.Dispatcher);
                 using var brightness = new BrightnessWatcher();
                 var shelf = new Shelf();

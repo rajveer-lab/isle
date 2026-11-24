@@ -1,0 +1,19 @@
+{
+  "manifest_version": 3,
+  "name": "Isle",
+  "version": "1.0.0",
+  "description": "Shows every tab that's playing in Isle's dynamic island, with play, skip and Like for YouTube Music.",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAskU6yBDJUoL5doU7c/EK4PrmmdVnwc3f1z9p2gO9cNoeKyGUdx1YoJFq3dtS/qa6kPvsuS0e/bmJAeQTivJlMM9HoYCYcj6P0bB+UR/UpCFsl0Bhlg1b/LSs5FDT8rAf0yU3JvnS0QfsqCTVTv7wkUi+sVVHiUCRKE/k/Y7gjZEC+9HBIy/0l5cjzjdLFTZzJTcnyeCY8eIx7OAgsby7i9RtmVq5yTUrLvEF0NDo7hFujtwWz9soR4PAQkB+5HldY6Wgxj0JK01PfPpE09AH/wg0sIFuxNazotO6qmqZvcYy7Itc+IOeUcq5/jwMCGSlB+i6HPtt07Pip1wIQvlMfQIDAQAB",
+  "icons": { "16": "icon16.png", "48": "icon48.png", "128": "icon128.png" },
+  "permissions": ["nativeMessaging", "tabs", "scripting"],
+  "host_permissions": ["<all_urls>"],
+  "background": { "service_worker": "background.js" },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"],
+      "all_frames": true,
+      "run_at": "document_idle"
+    }
+  ]
+}

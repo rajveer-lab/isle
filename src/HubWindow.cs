@@ -140,6 +140,33 @@ namespace Isle
             _phone.StatusChanged += () => { if (IsVisible) Refresh(); };
             _phone.ClipboardFromPhone += t => { if (IsVisible) Refresh(); };
             IsVisibleChanged += (s, e) => { if (IsVisible) Refresh(); };
+
+            // browser tabs (Isle extension)
+            P<Button>("BrowserSetup").Click += (s, e) =>
+            {
+                BrowserBridge.OpenSetup();
+                P<TextBlock>("BrowserSub").Text = "In the browser: turn on Developer mode (top right), click Load unpacked and pick the “Browser extension” folder that just opened.";
+            };
+            var bridge = BrowserBridge.Current;
+            if (bridge != null)
+            {
+                bridge.ConnectionChanged += () => { if (IsVisible) RefreshBrowser(); };
+                bridge.TabsChanged += () => { if (IsVisible) RefreshBrowser(); };
+            }
+        }
+
+        void RefreshBrowser()
+        {
+            var bridge = BrowserBridge.Current;
+            var browsers = bridge?.Browsers.ToList() ?? new List<string>();
+            bool on = browsers.Count > 0;
+            int tabs = bridge?.Tabs.Count() ?? 0;
+            P<Ellipse>("BrowserDot").Fill = new SolidColorBrush(on ? Color.FromRgb(0x30, 0xD1, 0x58) : Color.FromRgb(0x8E, 0x8E, 0x93));
+            P<TextBlock>("BrowserSub").Text = on
+                ? "Connected to " + string.Join(", ", browsers) + (tabs > 0 ? "  ·  " + tabs + (tabs == 1 ? " tab playing" : " tabs playing") : "") +
+                  ". Swipe sideways on the open island to switch; like songs on YouTube Music from the island."
+                : "See every tab that's playing, not just the last one, and like YouTube Music songs from the island. Needs the Isle extension (one-time setup).";
+            P<Button>("BrowserSetup").Content = on ? "Reinstall" : "Set up";
         }
 
         T P<T>(string name) where T : class => (T)_root.FindName(name);
@@ -162,6 +189,7 @@ namespace Isle
 
         public void Refresh()
         {
+            RefreshBrowser();
             _loading = true;
             try
             {

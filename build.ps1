@@ -30,7 +30,7 @@ $refs = @(
     "$fx\WPF\UIAutomationClient.dll", "$fx\WPF\UIAutomationTypes.dll",
     "$fx\System.Runtime.dll", "$fx\System.Runtime.WindowsRuntime.dll",
     "$fx\System.Runtime.InteropServices.WindowsRuntime.dll", "$fx\System.Threading.Tasks.dll",
-    "$fx\System.IO.dll", "$fx\System.ObjectModel.dll"
+    "$fx\System.IO.dll", "$fx\System.ObjectModel.dll", "$fx\System.Web.Extensions.dll"
 ) + $winmdRefs
 
 $cscArgs = @(
@@ -38,7 +38,7 @@ $cscArgs = @(
     '/nowarn:1701,1702', "/out:$out\Isle.exe",
     "/win32manifest:$root\app.manifest", "/win32icon:$ico",
     "/resource:$root\src\Island.xaml,Isle.Island.xaml", "/resource:$root\src\Hub.xaml,Isle.Hub.xaml", "/resource:$ico,Isle.isle.ico"
-) + ($refs | ForEach-Object { "/reference:$_" }) + (Get-ChildItem "$root\src\*.cs" | ForEach-Object FullName)
+) + (Get-ChildItem "$root\browser\*" -File | ForEach-Object { "/resource:$($_.FullName),Isle.browser.$($_.Name)" }) + ($refs | ForEach-Object { "/reference:$_" }) + (Get-ChildItem "$root\src\*.cs" | ForEach-Object FullName)
 
 & $csc @cscArgs
 if ($LASTEXITCODE -ne 0) { throw "Build failed." }
@@ -49,7 +49,9 @@ Copy-Item "$root\app.config" "$out\Isle.exe.config" -Force
 $dist = Join-Path $root 'dist'
 New-Item -ItemType Directory -Force $dist | Out-Null
 if (Test-Path "$env:LOCALAPPDATA\Android\Sdk\platforms\android-35\android.jar") {
-    & (Join-Path $root 'android\build-apk.ps1') | Select-Object -Last 1
+    # a missing JDK (Android Studio removed) shouldn't stop the Windows build: the last built APK is kept
+    try { & (Join-Path $root 'android\build-apk.ps1') | Select-Object -Last 1 }
+    catch { Write-Warning "Phone app not rebuilt ($($_.Exception.Message)); using the existing dist\Isle-Phone.apk." }
 }
 $apk = Join-Path $dist 'Isle-Phone.apk'
 

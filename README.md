@@ -45,7 +45,9 @@ Most "dynamic island" apps for Windows are heavy web or UWP shells that lag and 
 <td width="50%" valign="top">
 
 ### 🎵 Now playing
-Album art and live bars sit in the pill. Opened, the island shows a seek bar, playback controls, volume, and a glow tinted by the album art. The bars and buttons take on the art's colour. It works with any app that reports what's playing to Windows: Spotify, Chrome, Edge, YouTube Music and more. The playing app's icon sits in the corner, and clicking it switches between players.
+Album art and live bars sit in the pill. Opened, the island shows a seek bar, playback controls, volume, and a glow tinted by the album art. The bars and buttons take on the art's colour. It works with any app that reports what's playing to Windows: Spotify, Chrome, Edge, YouTube Music and more. The playing app's icon sits in the corner. With several things playing, swipe sideways on the touchpad (or Shift + scroll) to slide between them.
+
+**Every browser tab, not just the last one.** Windows only sees the tab a browser played last. With the small Isle extension for Chrome, Edge or Brave, each tab that's playing gets its own entry, and a heart button likes the song on YouTube Music (or the video on YouTube) without opening the tab.
 
 </td>
 <td width="50%" valign="top">
@@ -136,6 +138,8 @@ To update, run a newer `IsleSetup.exe`. To uninstall, go to **Settings › Apps 
 | Change volume | Scroll over the island, or use the volume keys |
 | Send files to the phone | Drag them onto the island, use *Send files*, or right-click › *Send to › Phone (Isle)* |
 | Paste the phone's clipboard | Copy on the phone, tap **Copy to laptop**, then press **Ctrl+V** |
+| Switch between players / tabs | Swipe sideways on the open island, Shift + scroll, or click the app icon |
+| Connect browser tabs | Isle app window › **Browser tabs › Set up**, then in Chrome: Developer mode › **Load unpacked** › the folder that opened |
 
 Every option is also in `%APPDATA%\Isle\settings.ini`, which is commented.
 
@@ -163,6 +167,7 @@ flowchart LR
 - **Glass.** While the island is open, a background thread grabs the strip of screen behind it a few times a second. The island hides itself from that grab with `WDA_EXCLUDEFROMCAPTURE`, only for a moment, so your own screenshots still show it. The grab is shrunk with area averaging and stretched back up under a blur shader and a dark tint. Nothing is saved, and it stops as soon as the island closes.
 - **Media.** Uses Windows' media session API (`GlobalSystemMediaTransportControls`). A colour taken from the album art drives the glow and the controls.
 - **Calls and the privacy dot.** Mic use comes from live Core Audio capture sessions and camera use from Media Foundation's sensor activity monitor, with Windows' privacy usage records as a fallback. Caller names and the Accept, Decline and End buttons are read from call windows and notifications through UI Automation.
+- **Browser tabs.** The Isle extension (`browser/`) finds the audio or video you've heard in each tab and runs play, skip, seek and Like inside the page. Chrome starts `Isle.exe` as a native messaging host, which relays to the running Isle over a named pipe that only your Windows account can open. Nothing goes over the network.
 - **Isle Link.** A small line-based protocol over Bluetooth RFCOMM, carrying `HELLO`, `CLIP`, `BATT`, `RING`, `FILE`/`DATA`/`FILEEND` and `MIRROR*`. Either side can dial the other, so they reconnect on their own.
 - **Phone app.** About 1,000 lines of plain Java built straight against the Android SDK, with no Gradle and no libraries. The APK is about 40 KB.
 
@@ -203,6 +208,7 @@ isle/
 │   ├── Island.xaml       island layout and styles
 │   ├── HubWindow.cs      the Isle app window (Hub.xaml)
 │   ├── MediaService.cs   now playing, album art, accent colour
+│   ├── BrowserBridge.cs  link to the browser extension (every playing tab)
 │   ├── CallService.cs    call detection and controls
 │   ├── SensorUse.cs      live mic / camera use (privacy dot)
 │   ├── AudioService.cs   volume, mic mute, peak meter
@@ -210,6 +216,7 @@ isle/
 │   ├── Phone.cs          phone status, clipboard, file sending
 │   ├── MirrorWindow.cs   phone screen viewer
 │   └── EarbudsArt.cs     vector earbuds drawings
+├── browser/              Isle extension for Chrome / Edge / Brave
 ├── android/              Isle for Android (Java)
 ├── setup/                single-file installer
 ├── docs/                 logo and screenshots

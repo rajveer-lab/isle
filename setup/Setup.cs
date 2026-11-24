@@ -64,7 +64,7 @@ namespace IsleSetup
 
     static class Installer
     {
-        public const string Version = "1.5.2";
+        public const string Version = "1.6.0";
         public static string Dir => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Programs", "Isle");
         public static string Exe => Path.Combine(Dir, "Isle.exe");
         public static string Uninstaller => Path.Combine(Dir, "Uninstall Isle.exe");
@@ -144,6 +144,9 @@ namespace IsleSetup
             using (var k = Registry.CurrentUser.OpenSubKey(RunKey, true))
                 k?.DeleteValue("Isle", false);
             Registry.CurrentUser.DeleteSubKeyTree(UninstallKey, false);
+            // the browser extension's link to Isle (Chrome, Edge, Brave)
+            foreach (var browser in new[] { @"Google\Chrome", @"Microsoft\Edge", @"BraveSoftware\Brave-Browser" })
+                try { Registry.CurrentUser.DeleteSubKeyTree(@"Software\" + browser + @"\NativeMessagingHosts\com.isle.browser", false); } catch { }
             try { File.Delete(Exe); File.Delete(Exe + ".config"); File.Delete(Path.Combine(Dir, "Isle-Phone.apk")); } catch { }
             if (removeSettings)
             {

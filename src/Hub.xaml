@@ -275,6 +275,29 @@
             </StackPanel>
           </Border>
 
+          <!-- browser tabs -->
+          <Border Style="{StaticResource Card}">
+            <Grid>
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+              </Grid.ColumnDefinitions>
+              <Grid Width="40" Height="40" VerticalAlignment="Top">
+                <Border CornerRadius="12" Background="#1FFFFFFF"/>
+                <TextBlock Text="&#xE774;" FontFamily="{StaticResource Icons}" FontSize="19" Foreground="#E6FFFFFF" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                <Ellipse x:Name="BrowserDot" Width="10" Height="10" Fill="#FF8E8E93" Stroke="#FF151518" StrokeThickness="2"
+                         HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,-2,-2"/>
+              </Grid>
+              <StackPanel Grid.Column="1" Margin="12,0,8,0" VerticalAlignment="Center">
+                <TextBlock Text="Browser tabs" Style="{StaticResource H}"/>
+                <TextBlock x:Name="BrowserSub" Style="{StaticResource Sub}" Margin="0,2,0,0" TextWrapping="Wrap"/>
+              </StackPanel>
+              <Button x:Name="BrowserSetup" Grid.Column="2" Style="{StaticResource Ghost}" Content="Set up" VerticalAlignment="Center"
+                      Background="#FF7CF2C2" Foreground="#FF0A0A0C"/>
+            </Grid>
+          </Border>
+
           <!-- clipboard from phone -->
           <Border Style="{StaticResource Card}">
             <StackPanel>
