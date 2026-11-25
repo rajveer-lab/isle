@@ -25,13 +25,22 @@
   const visible = el => !!el && el.offsetParent !== null && !el.disabled;
   const q = sel => document.querySelector(sel);
 
+  // YouTube Music has two players: the older "player bar" and the newer "miniplayer" (wiz controls)
+  const YTM_PLAYERS = 'ytmusic-miniplayer, ytmusic-player-bar, ytmusic-player-page';
+  function ytmButton(rx) {
+    for (const root of document.querySelectorAll(YTM_PLAYERS))
+      for (const b of root.querySelectorAll('button, tp-yt-paper-icon-button'))
+        if (rx.test(b.getAttribute('aria-label') || b.getAttribute('title') || '') && visible(b)) return b;
+    return null;
+  }
+
   function nextButton() {
-    if (site === 'ytmusic') return q('ytmusic-player-bar .next-button');
+    if (site === 'ytmusic') return q('ytmusic-player-bar .next-button') || ytmButton(/^next\b/i);
     if (site === 'youtube') return q('.html5-video-player .ytp-next-button');
     return null;
   }
   function prevButton() {
-    if (site === 'ytmusic') return q('ytmusic-player-bar .previous-button');
+    if (site === 'ytmusic') return q('ytmusic-player-bar .previous-button') || ytmButton(/^previous\b/i);
     if (site === 'youtube') return q('.html5-video-player .ytp-prev-button');
     return null;
   }
@@ -41,6 +50,13 @@
   }
   function likeButton() {
     if (site === 'ytmusic') {
+      // newer player: the same like button YouTube uses, inside the miniplayer / player page (a visible copy first)
+      const all = [];
+      for (const root of document.querySelectorAll(YTM_PLAYERS))
+        all.push(...root.querySelectorAll('like-button-view-model button'));
+      const shown = all.find(visible);
+      if (shown || all.length) return shown || all[0];
+      // older player bar
       const r = likeRenderer();
       if (!r) return null;
       return r.querySelector('#button-shape-like button') ||
@@ -58,6 +74,7 @@
     return null;
   }
   function isLiked(b) {
+    if (b.closest('like-button-view-model')) return b.getAttribute('aria-pressed') === 'true';
     const r = likeRenderer();
     const status = r && r.getAttribute('like-status');
     if (status) return status === 'LIKE';
