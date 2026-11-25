@@ -1,8 +1,9 @@
 // Isle: runs in every page. Finds the audio/video you're actually listening to, reports it to the
 // extension's background script, and carries out play / pause / skip / seek / like for Isle.
 (() => {
-  if (window.__isle) return;
-  window.__isle = true;
+  // already running here, unless that copy belongs to an extension that was reloaded (it can't send any more)
+  if (window.__isleAlive && window.__isleAlive()) return;
+  window.__isleAlive = () => { try { return !!chrome.runtime.id; } catch (e) { return false; } };
 
   const host = location.hostname;
   const site = host === 'music.youtube.com' ? 'ytmusic' : /(^|\.)youtube\.com$/.test(host) ? 'youtube' : 'web';

@@ -52,6 +52,7 @@ namespace Isle
         readonly Dictionary<string, byte[]> _images = new Dictionary<string, byte[]>();
         readonly Queue<string> _imageOrder = new Queue<string>();
         volatile bool _stop;
+        string _lastSummary = "";
 
         /// <summary>Raised on the UI thread when tabs appear, change or go away.</summary>
         public event Action TabsChanged;
@@ -119,6 +120,7 @@ namespace Isle
             try
             {
                 Send(c, new Dictionary<string, object> { { "type", "hello" } });
+                App.Note("browser extension connected");
                 _ui.BeginInvoke(new Action(() => ConnectionChanged?.Invoke()));
                 using (var reader = new StreamReader(c.Pipe, Encoding.UTF8))
                 {
@@ -194,6 +196,11 @@ namespace Isle
                 }
             }
             foreach (var id in _tabs.Where(kv => kv.Value.Client == c && !seen.Contains(kv.Key)).Select(kv => kv.Key).ToList()) _tabs.Remove(id);
+            // one line in isle.log whenever what the browser reports changes (not on every position update)
+            string summary = string.Join("; ", _tabs.Values.OrderBy(t => t.Seq).Select(t => string.Format("{0} {1}{2}{3}{4} \"{5}\"",
+                t.SiteName, t.Playing ? "playing" : "paused", t.CanLike ? (t.Liked ? " liked" : " can-like") : " no-like",
+                t.CanNext ? " next" : "", t.CanPrev ? " prev" : "", t.Title.Length > 40 ? t.Title.Substring(0, 40) + "…" : t.Title)));
+            if (summary != _lastSummary) { _lastSummary = summary; App.Note(c.Browser + " tabs: " + (summary.Length > 0 ? summary : "none")); }
             TabsChanged?.Invoke();
         }
 
@@ -333,7 +340,9 @@ namespace Isle
                             Thread.Sleep(2000);
                             continue;
                         }
-                        using (var pipe = new NamedPipeClientStream(".", PipeName, PipeDirection.InOut))
+                        // Asynchronous (overlapped) so this thread can wait for Isle's next line while the other one
+                        // writes: on a synchronous handle Windows queues the write behind the pending read, forever
+                        using (var pipe = new NamedPipeClientStream(".", PipeName, PipeDirection.InOut, PipeOptions.Asynchronous))
                         {
                             pipe.Connect(1000);
                             var w = new StreamWriter(pipe, new UTF8Encoding(false)) { AutoFlush = true };
